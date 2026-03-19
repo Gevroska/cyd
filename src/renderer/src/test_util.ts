@@ -51,6 +51,8 @@ export function createMockXAccount(overrides?: Partial<XAccount>): XAccount {
     deleteRetweetsDaysOldEnabled: false,
     deleteRetweetsDaysOld: 0,
     deleteLikes: false,
+    deleteLikesDaysOldEnabled: false,
+    deleteLikesDaysOld: 0,
     deleteBookmarks: false,
     deleteDMs: false,
     unfollowEveryone: false,

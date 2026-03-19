@@ -38,6 +38,8 @@ export type XAccount = {
   deleteRetweetsDaysOldEnabled: boolean;
   deleteRetweetsDaysOld: number;
   deleteLikes: boolean;
+  deleteLikesDaysOldEnabled: boolean;
+  deleteLikesDaysOld: number;
   deleteBookmarks: boolean;
   deleteDMs: boolean;
   unfollowEveryone: boolean;
