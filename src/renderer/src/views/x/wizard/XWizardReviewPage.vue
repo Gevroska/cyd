@@ -462,6 +462,15 @@ onMounted(async () => {
                     >{{ deleteReviewStats.likesToDelete.toLocaleString() }}
                     {{ t("review.likes") }}</b
                   >
+                  <span
+                    v-if="model.account?.xAccount?.deleteLikesDaysOldEnabled"
+                  >
+                    {{
+                      t("review.thatWereLikedOlderThan", {
+                        days: model.account?.xAccount?.deleteLikesDaysOld,
+                      })
+                    }}
+                  </span>
                 </li>
                 <li
                   v-if="hasSomeData && model.account?.xAccount?.deleteBookmarks"

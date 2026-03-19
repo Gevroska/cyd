@@ -43,6 +43,8 @@ describe("XWizardDeleteOptionsPage", () => {
         deleteTweets: false,
         deleteRetweets: false,
         deleteLikes: false,
+        deleteLikesDaysOldEnabled: false,
+        deleteLikesDaysOld: 0,
         ...accountOverrides.xAccount,
       } as XAccount,
     }),
@@ -136,6 +138,32 @@ describe("XWizardDeleteOptionsPage", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(xHasSomeData).toHaveBeenCalledWith(expect.any(Number));
+    });
+  });
+
+  describe("delete likes advanced options", () => {
+    it("shows the likes age filter when toggled", async () => {
+      const mockModel = createMockModel();
+
+      wrapper = mount(XWizardDeleteOptionsPage, {
+        props: {
+          model: mockModel as XViewModel,
+        },
+        global: {
+          plugins: [i18n],
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const toggles = wrapper
+        .findAll("button")
+        .filter((btn) => btn.text().includes("Show more options"));
+      expect(toggles).toHaveLength(3);
+
+      await toggles[2].trigger("click");
+
+      expect(wrapper.find("#deleteLikesDaysOldEnabled").exists()).toBe(true);
     });
   });
 });

@@ -219,7 +219,7 @@ export class MITMController implements IMITMController {
     });
 
     // Wait for proxy to be ready
-    const testURL = "https://dev-api.cyd.social/health"; // TODO: update this to the prod API URL
+    const testURL = "https://api.cyd.social/health";
     let success = false;
     log.debug(
       `MITMController: Account ${this.account?.id}, waiting for proxy to be ready...`,

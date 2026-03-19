@@ -133,6 +133,12 @@ export const migrations: Migration[] = [
       `UPDATE tweet SET deletedLikeAt = deletedAt WHERE deletedAt IS NOT NULL AND isLiked = 1;`,
     ],
   },
+
+  // Add likedAt to tweet table so likes can be filtered by the date they were liked when available
+  {
+    name: "20260319_add_likedAt",
+    sql: [`ALTER TABLE tweet ADD COLUMN likedAt DATETIME;`],
+  },
   // Add tweet_bsky_migration table
   {
     name: "20250205_add_tweet_bsky_migration_table",
