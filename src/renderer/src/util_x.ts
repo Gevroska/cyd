@@ -1,7 +1,6 @@
 import CydAPIClient from "../../cyd-api-client";
 import type { DeviceInfo } from "./types";
 import { XAccount, XProgressInfo } from "../../shared_types";
-import { getJobsType } from "./util";
 
 export async function xGetLastImportArchive(
   accountID: number,
@@ -115,69 +114,10 @@ export async function xHasSomeData(accountID: number): Promise<boolean> {
 }
 
 export async function xRequiresPremium(
-  accountID: number,
-  xAccount: XAccount,
+  _accountID: number,
+  _xAccount: XAccount,
 ): Promise<boolean> {
-  let requiresPremium = false;
-  const jobsType = getJobsType(accountID);
-
-  // Migrating to Bluesky is a premium feature
-  if (jobsType == "migrateBluesky") {
-    return true;
-  }
-
-  // All other premium features are part of deleting
-  if (jobsType != "delete") {
-    return requiresPremium;
-  }
-
-  // You can delete tweets for free, but only if you're not using these options
-  if (xAccount.deleteTweets && xAccount.deleteTweetsDaysOldEnabled) {
-    console.log(
-      "Requires premium: deleteTweets and deleteTweetsDaysOldEnabled",
-    );
-    requiresPremium = true;
-  }
-  if (xAccount.deleteTweets && xAccount.deleteTweetsLikesThresholdEnabled) {
-    console.log(
-      "Requires premium: deleteTweets and deleteTweetsLikesThresholdEnabled",
-    );
-    requiresPremium = true;
-  }
-  if (xAccount.deleteTweets && xAccount.deleteTweetsRetweetsThresholdEnabled) {
-    console.log(
-      "Requires premium: deleteTweets and deleteTweetsRetweetsThresholdEnabled",
-    );
-    requiresPremium = true;
-  }
-
-  // You can delete retweets for free, but only if you're not using these options
-  if (xAccount.deleteRetweets && xAccount.deleteRetweetsDaysOldEnabled) {
-    console.log(
-      "Requires premium: deleteRetweets and deleteRetweetsDaysOldEnabled",
-    );
-    requiresPremium = true;
-  }
-
-  // Deleting likes, bookmarks, DMs, and unfollowing everyone are premium features
-  if (xAccount.deleteLikes) {
-    console.log("Requires premium: deleteLikes");
-    requiresPremium = true;
-  }
-  if (xAccount.deleteDMs) {
-    console.log("Requires premium: deleteDMs");
-    requiresPremium = true;
-  }
-  if (xAccount.deleteBookmarks) {
-    console.log("Requires premium: deleteBookmarks");
-    requiresPremium = true;
-  }
-  if (xAccount.unfollowEveryone) {
-    console.log("Requires premium: unfollowEveryone");
-    requiresPremium = true;
-  }
-
-  return requiresPremium;
+  return false;
 }
 
 export async function xPostProgress(
