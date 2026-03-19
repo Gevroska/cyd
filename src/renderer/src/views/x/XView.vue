@@ -39,12 +39,9 @@ import {
 } from "../../view_models/XViewModel";
 import {
   setAccountRunning,
-  showQuestionOpenModePremiumFeature,
-  setPremiumTasks,
-  getJobsType,
   formatError,
 } from "../../util";
-import { xRequiresPremium, xPostProgress } from "../../util_x";
+import { xPostProgress } from "../../util_x";
 import { usePlatformView } from "../../composables/usePlatformView";
 import { getPlatformConfig } from "../../config/platforms";
 import PlatformView from "../PlatformView.vue";
@@ -207,44 +204,6 @@ const startJobs = async () => {
     model.value.state = State.RunJobs;
     await startStateLoop();
     return;
-  }
-
-  if (
-    model.value.account?.xAccount &&
-    (await xRequiresPremium(
-      model.value.account.id,
-      model.value.account.xAccount,
-    ))
-  ) {
-    if ((await window.electron.getMode()) == "open") {
-      if (!(await showQuestionOpenModePremiumFeature())) {
-        return;
-      }
-    } else {
-      const jobsType = getJobsType(model.value.account.id);
-      let premiumTasks: string[] = [];
-      if (jobsType == "migrateBluesky") {
-        premiumTasks = ["Migrate tweets to Bluesky"];
-      }
-
-      await updateUserAuthenticated();
-      console.log("userAuthenticated", userAuthenticated.value);
-      if (!userAuthenticated.value) {
-        setPremiumTasks(model.value.account.id, premiumTasks);
-        model.value.state = State.WizardCheckPremium;
-        await startStateLoop();
-        return;
-      }
-
-      await updateUserPremium();
-      console.log("userPremium", userPremium.value);
-      if (!userPremium.value) {
-        setPremiumTasks(model.value.account.id, premiumTasks);
-        model.value.state = State.WizardCheckPremium;
-        await startStateLoop();
-        return;
-      }
-    }
   }
 
   console.log("Starting jobs");

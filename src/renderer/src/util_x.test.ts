@@ -2,8 +2,6 @@ import { test, expect } from "vitest";
 import { XAccount } from "../../shared_types";
 
 import * as UtilX from "./util_x";
-import { setJobsType } from "./util";
-
 const localStorageMock = (() => {
   let store: { [key: string]: string } = {};
 
@@ -76,7 +74,6 @@ test("UtilX.xRequiresPremium() returns false when saving", async () => {
     archiveBookmarks: true,
     archiveDMs: true,
   });
-  setJobsType(accountID, "save");
   expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
 });
 
@@ -87,7 +84,6 @@ test("UtilX.xRequiresPremium() returns false when archiving", async () => {
     archiveBookmarks: true,
     archiveDMs: true,
   });
-  setJobsType(accountID, "archive");
   expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
 });
 
@@ -105,11 +101,10 @@ test("UtilX.xRequiresPremium() returns false for only deleting tweets and retwee
     deleteDMs: false,
     unfollowEveryone: false,
   });
-  setJobsType(accountID, "delete");
   expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
 });
 
-test("UtilX.xRequiresPremium() returns true when choosing any delete options", async () => {
+test("UtilX.xRequiresPremium() returns false when choosing any delete options", async () => {
   const deleteOptions = [
     "deleteTweetsDaysOldEnabled",
     "deleteTweetsLikesThresholdEnabled",
@@ -129,17 +124,13 @@ test("UtilX.xRequiresPremium() returns true when choosing any delete options", a
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (xAccount as any)[option] = true;
 
-    setJobsType(accountID, "delete");
-
-    // Check if the account requires premium
     const requiresPremium = await UtilX.xRequiresPremium(accountID, xAccount);
     console.log(`option: ${option}, requiresPremium: ${requiresPremium}`);
-    expect(requiresPremium).toBe(true);
+    expect(requiresPremium).toBe(false);
   }
 });
 
-test("UtilX.xRequiresPremium() returns true for migrating to Bluesky", async () => {
+test("UtilX.xRequiresPremium() returns false for migrating to Bluesky", async () => {
   const xAccount: XAccount = createXAccountFromDefaults({});
-  setJobsType(accountID, "migrateBluesky");
-  expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(true);
+  expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
 });

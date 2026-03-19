@@ -13,7 +13,7 @@ export const FacebookPlatformConfig: PlatformConfig = {
   name: "Facebook",
   features: {
     hasArchiveOnly: false,
-    hasPremiumGating: true,
+    hasPremiumGating: false,
     hasComplexImport: false,
     hasMigration: false,
     hasU2FSupport: true,

@@ -29,7 +29,7 @@ export const XPlatformConfig: PlatformConfig = {
 
   features: {
     hasArchiveOnly: true, // X supports "Archive Only" mode to skip authentication
-    hasPremiumGating: true, // X has complex premium gating for certain features
+    hasPremiumGating: false, // Premium-gated features are available to all users
     hasComplexImport: true, // X supports multi-step import workflows (zip files, etc.)
     hasMigration: true, // X supports migration to Bluesky
     hasU2FSupport: true, // X supports U2F security keys for 2FA
