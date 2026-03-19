@@ -23,6 +23,7 @@ export type TweetSeed = {
   deletedTweetAt?: string | null;
   deletedRetweetAt?: string | null;
   deletedLikeAt?: string | null;
+  likedAt?: string | null;
   deletedBookmarkAt?: string | null;
   hasMedia?: number;
   isReply?: number;
@@ -91,6 +92,7 @@ export function seedTweet(
     deletedTweetAt: null,
     deletedRetweetAt: null,
     deletedLikeAt: null,
+    likedAt: null,
     deletedBookmarkAt: null,
     hasMedia: 0,
     isReply: 0,
@@ -122,6 +124,7 @@ export function seedTweet(
         deletedTweetAt,
         deletedRetweetAt,
         deletedLikeAt,
+        likedAt,
         deletedBookmarkAt,
         hasMedia,
         isReply,
@@ -129,7 +132,7 @@ export function seedTweet(
         replyUserID,
         isQuote,
         quotedTweet
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.tweetID,
       data.username,
@@ -149,6 +152,7 @@ export function seedTweet(
       data.deletedTweetAt,
       data.deletedRetweetAt,
       data.deletedLikeAt,
+      data.likedAt,
       data.deletedBookmarkAt,
       data.hasMedia,
       data.isReply,
