@@ -233,11 +233,6 @@ const checkForUpdatesClicked = async () => {
   userBtnShowMenu.value = false;
 };
 
-const advancedSettingsClicked = async () => {
-  userBtnShowMenu.value = false;
-  emitter?.emit("show-advanced-settings");
-};
-
 const reloadAccounts = async () => {
   accounts.value = await window.electron.database.getAccounts();
   console.log("Reloading accounts", JSON.parse(JSON.stringify(accounts.value)));
@@ -345,9 +340,6 @@ onUnmounted(async () => {
                 </li>
                 <li class="menu-btn" @click="checkForUpdatesClicked">
                   Check for updates
-                </li>
-                <li class="menu-btn" @click="advancedSettingsClicked">
-                  Advanced settings
                 </li>
                 <li class="menu-btn" @click="aboutClicked">
                   {{ t("tabs.about") }}

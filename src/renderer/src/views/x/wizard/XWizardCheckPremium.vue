@@ -162,6 +162,21 @@ onMounted(async () => {
         </div>
       </li>
       <li
+        v-if="
+          jobsType == 'delete' &&
+          model.account.xAccount?.deleteLikes &&
+          model.account.xAccount?.deleteLikesDaysOldEnabled
+        "
+        class="mb-1"
+      >
+        <div class="card">
+          <small class="card-body">
+            <i class="fa-solid fa-calendar-alt me-2" />
+            {{ t("premium.deleteLikesOlderThan") }}
+          </small>
+        </div>
+      </li>
+      <li
         v-if="jobsType == 'delete' && model.account.xAccount?.deleteBookmarks"
         class="mb-1"
       >

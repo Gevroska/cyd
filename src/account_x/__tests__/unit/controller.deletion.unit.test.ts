@@ -173,6 +173,38 @@ describe("XAccountController - Deletion", () => {
 
       expect(ids).toEqual(["liked"]);
     });
+
+    test("filters likes by liked date when available and tweet date otherwise", async () => {
+      controller.account!.deleteLikesDaysOldEnabled = true;
+      controller.account!.deleteLikesDaysOld = 30;
+
+      seedTweet(controller, {
+        tweetID: "old-liked-date",
+        username: "other",
+        isLiked: 1,
+        createdAt: getTimestampDaysAgo(5),
+        likedAt: getTimestampDaysAgo(60),
+      });
+      seedTweet(controller, {
+        tweetID: "fallback-old-created-date",
+        username: "other",
+        isLiked: 1,
+        createdAt: getTimestampDaysAgo(60),
+        likedAt: null,
+      });
+      seedTweet(controller, {
+        tweetID: "too-recent-like",
+        username: "other",
+        isLiked: 1,
+        createdAt: getTimestampDaysAgo(90),
+        likedAt: getTimestampDaysAgo(5),
+      });
+
+      const result = await controller.deleteLikesStart();
+      const ids = result.tweets.map((tweet) => tweet.id).sort();
+
+      expect(ids).toEqual(["fallback-old-created-date", "old-liked-date"]);
+    });
   });
 
   describe("deleteBookmarksStart", () => {

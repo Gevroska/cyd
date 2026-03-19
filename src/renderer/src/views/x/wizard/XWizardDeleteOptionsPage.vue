@@ -64,6 +64,16 @@ const deleteRetweetsShowMoreClicked = () => {
   deleteRetweetsShowMore.value = !deleteRetweetsShowMore.value;
 };
 
+const deleteLikesShowMore = ref(false);
+const deleteLikesShowMoreButtonText = computed(() =>
+  deleteLikesShowMore.value
+    ? t("wizard.hideMoreOptions")
+    : t("wizard.showMoreOptions"),
+);
+const deleteLikesShowMoreClicked = () => {
+  deleteLikesShowMore.value = !deleteLikesShowMore.value;
+};
+
 // Settings
 const deleteTweets = ref(false);
 const deleteTweetsDaysOldEnabled = ref(false);
@@ -76,6 +86,8 @@ const deleteRetweets = ref(false);
 const deleteRetweetsDaysOldEnabled = ref(false);
 const deleteRetweetsDaysOld = ref(0);
 const deleteLikes = ref(false);
+const deleteLikesDaysOldEnabled = ref(false);
+const deleteLikesDaysOld = ref(0);
 const deleteBookmarks = ref(false);
 const deleteDMs = ref(false);
 const unfollowEveryone = ref(false);
@@ -138,6 +150,9 @@ const loadSettings = async () => {
         account.xAccount.deleteRetweetsDaysOldEnabled;
       deleteRetweetsDaysOld.value = account.xAccount.deleteRetweetsDaysOld;
       deleteLikes.value = account.xAccount.deleteLikes;
+      deleteLikesDaysOldEnabled.value =
+        account.xAccount.deleteLikesDaysOldEnabled;
+      deleteLikesDaysOld.value = account.xAccount.deleteLikesDaysOld;
       deleteBookmarks.value = account.xAccount.deleteBookmarks;
       deleteDMs.value = account.xAccount.deleteDMs;
       unfollowEveryone.value = account.xAccount.unfollowEveryone;
@@ -156,6 +171,11 @@ const loadSettings = async () => {
     // Should delete retweets show more options?
     if (deleteRetweets.value && deleteRetweetsDaysOldEnabled.value) {
       deleteRetweetsShowMore.value = true;
+    }
+
+    // Should delete likes show more options?
+    if (deleteLikes.value && deleteLikesDaysOldEnabled.value) {
+      deleteLikesShowMore.value = true;
     }
 
     updateProceedState();
@@ -202,6 +222,9 @@ const saveSettings = async () => {
         deleteRetweetsDaysOldEnabled.value;
       account.xAccount.deleteRetweetsDaysOld = deleteRetweetsDaysOld.value;
       account.xAccount.deleteLikes = deleteLikes.value;
+      account.xAccount.deleteLikesDaysOldEnabled =
+        deleteLikesDaysOldEnabled.value;
+      account.xAccount.deleteLikesDaysOld = deleteLikesDaysOld.value;
       account.xAccount.deleteBookmarks = deleteBookmarks.value;
       account.xAccount.deleteDMs = deleteDMs.value;
       account.xAccount.unfollowEveryone = unfollowEveryone.value;
@@ -560,6 +583,59 @@ onMounted(async () => {
                 >
                   {{ t("wizard.deleteMyLikes") }}
                 </label>
+                <button
+                  class="btn btn-sm btn-link"
+                  @click="deleteLikesShowMoreClicked"
+                >
+                  {{ deleteLikesShowMoreButtonText }}
+                </button>
+              </div>
+            </div>
+            <div v-if="deleteLikesShowMore" class="indent mb-2">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center flex-nowrap">
+                  <div class="form-check">
+                    <input
+                      id="deleteLikesDaysOldEnabled"
+                      v-model="deleteLikesDaysOldEnabled"
+                      type="checkbox"
+                      class="form-check-input"
+                      :disabled="!deleteLikes || !hasSomeData"
+                    />
+                    <label
+                      class="form-check-label mr-1 text-nowrap"
+                      for="deleteLikesDaysOldEnabled"
+                    >
+                      {{ t("wizard.olderThan") }}
+                    </label>
+                  </div>
+                  <div class="d-flex align-items-center">
+                    <label
+                      class="form-check-label mr-1 sr-only"
+                      for="deleteLikesDaysOld"
+                    >
+                      {{ t("wizard.days") }}
+                    </label>
+                    <div class="input-group flex-nowrap">
+                      <input
+                        id="deleteLikesDaysOld"
+                        v-model="deleteLikesDaysOld"
+                        type="text"
+                        class="form-control form-short small"
+                        :disabled="
+                          !deleteLikes ||
+                          !deleteLikesDaysOldEnabled ||
+                          !hasSomeData
+                        "
+                      />
+                      <div class="input-group-append">
+                        <span class="input-group-text small">{{
+                          t("wizard.days")
+                        }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="indent">

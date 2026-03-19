@@ -15,7 +15,6 @@ const { t } = useI18n();
 
 import SignInModal from "./modals/SignInModal.vue";
 import AutomationErrorReportModal from "./modals/AutomationErrorReportModal.vue";
-import AdvancedSettingsModal from "./modals/AdvancedSettingsModal.vue";
 
 import TabsView from "./views/TabsView.vue";
 
@@ -64,13 +63,6 @@ provide("refreshAPIClient", refreshAPIClient);
 const userEmail = ref("");
 provide("userEmail", userEmail);
 
-// For advanced option to delete all settings and restart the app, before we do this we need to kill all of the
-// potential webviews by hiding the TabsView component
-const shouldHideTabsView = ref(false);
-emitter?.on("delete-all-settings-and-restart", async () => {
-  shouldHideTabsView.value = true;
-});
-
 // Modals!
 
 // Sign in modal
@@ -84,12 +76,6 @@ const showAutomationErrorReportModal = ref(false);
 emitter?.on("show-automation-error", (accountID: number) => {
   localStorage.setItem("automationErrorAccountID", accountID.toString());
   showAutomationErrorReportModal.value = true;
-});
-
-// Advanced settings modal
-const showAdvancedSettingsModal = ref(false);
-emitter?.on("show-advanced-settings", () => {
-  showAdvancedSettingsModal.value = true;
 });
 
 // Track whether a user is actively using Cyd
@@ -324,7 +310,6 @@ onUnmounted(() => {
     </template>
     <template v-else>
       <TabsView
-        v-if="!shouldHideTabsView"
         :updates-available="updatesAvailable"
         @check-for-updates-clicked="checkForUpdates(true)"
       />
@@ -379,13 +364,6 @@ onUnmounted(() => {
       v-if="showAutomationErrorReportModal"
       @hide="showAutomationErrorReportModal = false"
       @close="showAutomationErrorReportModal = false"
-    />
-
-    <!-- Advanced settings modal -->
-    <AdvancedSettingsModal
-      v-if="showAdvancedSettingsModal"
-      @hide="showAdvancedSettingsModal = false"
-      @close="showAdvancedSettingsModal = false"
     />
   </div>
 </template>
