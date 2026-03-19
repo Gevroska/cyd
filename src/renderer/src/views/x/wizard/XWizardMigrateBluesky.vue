@@ -260,11 +260,6 @@ onUnmounted(async () => {
         <div class="mb-4">
           <h2>
             {{ t("wizard.migrateToBluesky") }}
-            <span
-              v-if="!userAuthenticated || !userPremium"
-              class="premium badge badge-primary"
-              >{{ t("premium.premium") }}</span
-            >
           </h2>
           <p class="text-muted">
             {{ t("wizard.migrateToBlueskyDescription") }}

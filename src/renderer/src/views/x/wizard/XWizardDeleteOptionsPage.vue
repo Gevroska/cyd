@@ -350,11 +350,6 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
-                <span
-                  v-if="!userAuthenticated || !userPremium"
-                  class="premium badge badge-primary"
-                  >{{ t("wizard.premium") }}</span
-                >
               </div>
               <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center flex-nowrap">
@@ -400,11 +395,6 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
-                <span
-                  v-if="!userAuthenticated || !userPremium"
-                  class="premium badge badge-primary"
-                  >{{ t("wizard.premium") }}</span
-                >
               </div>
               <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center flex-nowrap">
@@ -448,11 +438,6 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
-                <span
-                  v-if="!userAuthenticated || !userPremium"
-                  class="premium badge badge-primary"
-                  >{{ t("wizard.premium") }}</span
-                >
               </div>
             </div>
           </div>
@@ -529,11 +514,6 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
-                <span
-                  v-if="!userAuthenticated || !userPremium"
-                  class="premium badge badge-primary"
-                  >{{ t("wizard.premium") }}</span
-                >
               </div>
             </div>
           </div>
@@ -559,11 +539,6 @@ onMounted(async () => {
                   t("wizard.recommended")
                 }}</span>
               </div>
-              <span
-                v-if="!userAuthenticated || !userPremium"
-                class="premium badge badge-primary"
-                >{{ t("wizard.premium") }}</span
-              >
             </div>
           </div>
 
@@ -585,13 +560,6 @@ onMounted(async () => {
                 >
                   {{ t("wizard.deleteMyLikes") }}
                 </label>
-              </div>
-              <div class="d-flex align-items-center flex-nowrap">
-                <span
-                  v-if="!userAuthenticated || !userPremium"
-                  class="premium badge badge-primary"
-                  >{{ t("wizard.premium") }}</span
-                >
               </div>
             </div>
             <div class="indent">
@@ -627,13 +595,6 @@ onMounted(async () => {
                   {{ t("wizard.deleteMyBookmarks") }}
                 </label>
               </div>
-              <div class="d-flex align-items-center flex-nowrap">
-                <span
-                  v-if="!userAuthenticated || !userPremium"
-                  class="premium badge badge-primary"
-                  >{{ t("wizard.premium") }}</span
-                >
-              </div>
             </div>
             <div class="indent">
               <small class="form-text text-muted">
@@ -662,11 +623,6 @@ onMounted(async () => {
                   </label>
                 </div>
               </div>
-              <span
-                v-if="!userAuthenticated || !userPremium"
-                class="premium badge badge-primary"
-                >{{ t("wizard.premium") }}</span
-              >
             </div>
             <div class="indent">
               <small class="form-text text-muted">
