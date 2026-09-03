@@ -37,10 +37,7 @@ import {
   FailureState,
   XViewModelState,
 } from "../../view_models/XViewModel";
-import {
-  setAccountRunning,
-  formatError,
-} from "../../util";
+import { setAccountRunning, formatError } from "../../util";
 import { xPostProgress } from "../../util_x";
 import { usePlatformView } from "../../composables/usePlatformView";
 import { getPlatformConfig } from "../../config/platforms";
