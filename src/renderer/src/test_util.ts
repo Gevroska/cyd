@@ -86,6 +86,13 @@ export function createMockFacebookAccount(
     profileImageDataURI: "",
     accountID: null,
     deleteWallPosts: false,
+    deleteComments: false,
+    deleteReactions: false,
+    deletePostsOnOthers: false,
+    deleteOthersPosts: false,
+    deleteCheckins: false,
+    deleteTaggedPosts: false,
+    deleteTaggedMedia: false,
     userLang: "English (US)",
     ...overrides,
   };
@@ -310,12 +317,16 @@ export function mockElectronAPI() {
       getProgressInfo: vi.fn().mockResolvedValue({
         accountUUID: "test-uuid-123",
         totalWallPostsDeleted: 0,
+        totalWallPostsUntagged: 0,
+        totalWallPostsHidden: 0,
       }),
       getConfig: vi.fn().mockResolvedValue(null),
       setConfig: vi.fn().mockResolvedValue(undefined),
       deleteConfig: vi.fn().mockResolvedValue(undefined),
       deleteConfigLike: vi.fn().mockResolvedValue(undefined),
       incrementTotalWallPostsDeleted: vi.fn().mockResolvedValue(undefined),
+      incrementTotalWallPostsUntagged: vi.fn().mockResolvedValue(undefined),
+      incrementTotalWallPostsHidden: vi.fn().mockResolvedValue(undefined),
       isRateLimited: vi
         .fn()
         .mockResolvedValue({ isRateLimited: false, rateLimitReset: 0 }),

@@ -70,7 +70,7 @@ function createMockFacebookViewModel(
     createMockJob("login"),
     createMockJob("saveUserLang"),
     createMockJob("setLangToEnglish"),
-    createMockJob("deleteWallPosts"),
+    createMockJob("deleteActivity"),
     createMockJob("restoreUserLang"),
   ];
 
@@ -85,6 +85,53 @@ function createMockFacebookViewModel(
   vi.spyOn(vm, "error").mockResolvedValue(undefined);
 
   return vm;
+}
+
+function mockSafeExecuteJavaScript(
+  vm: FacebookViewModel,
+  opts: {
+    batchesPerCategory?: number;
+    itemsPerBatch?: number;
+    clickTrashSuccess?: boolean;
+    batchCompletes?: boolean;
+  } = {},
+) {
+  const {
+    batchesPerCategory = 1,
+    itemsPerBatch = 5,
+    clickTrashSuccess = true,
+    batchCompletes = true,
+  } = opts;
+
+  // Loading the activity log refills the available batches for the category.
+  let remainingBatches = 0;
+  vi.mocked(vm.loadURL).mockImplementation(async () => {
+    remainingBatches = batchesPerCategory;
+  });
+
+  vi.spyOn(vm, "safeExecuteJavaScript").mockImplementation(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (_code: string, label?: string): Promise<any> => {
+      switch (label) {
+        case "toggleSelectAllCheckbox":
+          if (remainingBatches > 0) {
+            remainingBatches--;
+            return { success: true, value: true };
+          }
+          return { success: true, value: false };
+        case "countSelectableItems":
+          return { success: true, value: itemsPerBatch };
+        case "clickDeletePostsOption":
+          return { success: true, value: clickTrashSuccess };
+        case "confirmDeletion":
+          return { success: true, value: true };
+        case "waitForBatchToComplete":
+          return { success: true, value: batchCompletes };
+        default:
+          return { success: true, value: false };
+      }
+    },
+  );
 }
 
 describe("FacebookViewModel Delete Jobs", () => {
@@ -102,242 +149,136 @@ describe("FacebookViewModel Delete Jobs", () => {
     vi.restoreAllMocks();
   });
 
-  describe("runJobDeleteWallPosts", () => {
-    it("sets runJobsState to DeleteWallPosts", async () => {
+  describe("runJobDeleteActivity", () => {
+    it("sets runJobsState, showBrowser, and showAutomationNotice", async () => {
       const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
+      mockSafeExecuteJavaScript(vm);
 
-      // Mock all necessary JavaScript calls to simulate "no posts found"
-      vi.mocked(mockWebview.executeJavaScript).mockResolvedValue(false);
+      await DeleteJobs.runJobDeleteActivity(vm, 3);
 
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      // The function sets this at the start
-      expect(vm.log).toHaveBeenCalledWith(
-        "runJobDeleteWallPosts",
-        "Loading profile page",
-      );
-    });
-
-    it("shows browser and automation notice", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      vi.mocked(mockWebview.executeJavaScript).mockResolvedValue(false);
-
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
+      expect(vm.runJobsState).toBe(RunJobsState.DeleteActivity);
       expect(vm.showBrowser).toBe(true);
       expect(vm.showAutomationNotice).toBe(true);
     });
 
-    it("loads the profile page", async () => {
+    it("finishes without deleting anything when no categories are selected", async () => {
       const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
+      mockSafeExecuteJavaScript(vm);
 
-      vi.mocked(mockWebview.executeJavaScript).mockResolvedValue(false);
+      await DeleteJobs.runJobDeleteActivity(vm, 3);
 
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      expect(vm.loadURL).toHaveBeenCalledWith("https://www.facebook.com/me/");
-    });
-
-    it("reports error when Manage posts button is not found", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      // First call is to click the Manage posts button - return false (not found)
-      vi.mocked(mockWebview.executeJavaScript).mockResolvedValue(false);
-
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      expect(vm.error).toHaveBeenCalledWith(
-        AutomationErrorType.facebook_runJob_deleteWallPosts_ClickManagePostsFailed,
-        expect.objectContaining({
-          message: "Failed to click Manage posts button",
-        }),
-        expect.objectContaining({ currentURL: expect.any(String) }),
-      );
-      expect(vm.jobs[3].status).toBe("error");
-    });
-
-    it("reports error when dialog does not appear", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      // First call clicks the button successfully
-      vi.mocked(mockWebview.executeJavaScript)
-        .mockResolvedValueOnce(true) // clickManagePostsButton
-        .mockResolvedValue(false); // waitForManagePostsDialog always returns false
-
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      expect(vm.error).toHaveBeenCalledWith(
-        AutomationErrorType.facebook_runJob_deleteWallPosts_DialogNotFound,
-        expect.objectContaining({
-          message: "Manage posts dialog did not appear",
-        }),
-        expect.objectContaining({ currentURL: expect.any(String) }),
-      );
-    });
-
-    it("exits loop when no deletable items found", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      // Simulate: button clicked, dialog appears, but no items to delete
-      vi.mocked(mockWebview.executeJavaScript)
-        .mockResolvedValueOnce(true) // clickManagePostsButton
-        .mockResolvedValueOnce(true) // waitForManagePostsDialog (first check)
-        .mockResolvedValue([]); // getListsAndItems returns empty
-
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      expect(vm.log).toHaveBeenCalledWith(
-        "runJobDeleteWallPosts",
-        "No deletable items found, finishing",
-      );
-    });
-
-    it("updates progress with deleted posts count", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      // Simulate a successful deletion of 3 posts, then no more posts
-      // The call pattern is interleaved: toggleCheckbox, then getActionDescription for each item
-      let callCount = 0;
-      vi.mocked(mockWebview.executeJavaScript).mockImplementation(async () => {
-        callCount++;
-
-        // First batch:
-        // 1. clickManagePostsButton
-        if (callCount === 1) return true;
-        // 2. waitForManagePostsDialog
-        if (callCount === 2) return true;
-        // 3. getListsAndItems - return 3 items (first poll succeeds immediately)
-        if (callCount === 3)
-          return [
-            { listIndex: 0, itemIndex: 0 },
-            { listIndex: 0, itemIndex: 1 },
-            { listIndex: 0, itemIndex: 2 },
-          ];
-        // Interleaved: for each item, toggleCheckbox then getActionDescription
-        // 4. toggleCheckbox for item 0
-        if (callCount === 4) return true;
-        // 5. getActionDescription for item 0
-        if (callCount === 5)
-          return "You can hide or delete the posts selected.";
-        // 6. toggleCheckbox for item 1
-        if (callCount === 6) return true;
-        // 7. getActionDescription for item 1
-        if (callCount === 7)
-          return "You can hide or delete the posts selected.";
-        // 8. toggleCheckbox for item 2
-        if (callCount === 8) return true;
-        // 9. getActionDescription for item 2
-        if (callCount === 9)
-          return "You can hide or delete the posts selected.";
-        // 10. clickNextButton
-        if (callCount === 10) return true;
-        // 11. selectDeletePostsOption
-        if (callCount === 11) return true;
-        // 12. clickDoneButton
-        if (callCount === 12) return true;
-        // 13. waitForManagePostsDialogToDisappear - first check still shows dialog
-        if (callCount === 13) return true;
-        // 14. waitForManagePostsDialogToDisappear - dialog disappeared
-        if (callCount === 14) return false;
-        // 15. Second batch: clickManagePostsButton
-        if (callCount === 15) return true;
-        // 16. waitForManagePostsDialog
-        if (callCount === 16) return true;
-        // 17+. getListsAndItems - no more items
-        return [];
-      });
-
-      // Mock Date.now advances naturally via fake timers + sleep mock
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      // After deleting 3 posts, progress should reflect this
-      expect(vm.progress.wallPostsDeleted).toBeGreaterThanOrEqual(0);
-    });
-
-    it("logs total posts deleted at end", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      vi.mocked(mockWebview.executeJavaScript)
-        .mockResolvedValueOnce(true) // clickManagePostsButton
-        .mockResolvedValueOnce(true) // waitForManagePostsDialog
-        .mockResolvedValue([]); // getListsAndItems returns no items
-
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
-      expect(vm.log).toHaveBeenCalledWith(
-        "runJobDeleteWallPosts",
-        expect.stringContaining("Total posts deleted"),
-      );
-    });
-
-    it("marks job as finished at end", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
-
-      vi.mocked(mockWebview.executeJavaScript)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValue([]);
-
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
-
+      // No category was selected, so the activity log is never loaded
+      expect(vm.loadURL).not.toHaveBeenCalled();
+      expect(vm.safeExecuteJavaScript).not.toHaveBeenCalled();
+      expect(vm.progress.isDeleteActivityFinished).toBe(true);
       expect(vm.jobs[3].status).toBe("finished");
       expect(vm.jobs[3].finishedAt).not.toBeNull();
     });
 
-    it("continues to next batch if posts remain", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
+    it("deletes a single selected category and increments its counter", async () => {
+      const vm = createMockFacebookViewModel({
+        facebookAccount: createMockFacebookAccount({ deleteWallPosts: true }),
+      });
+      mockSafeExecuteJavaScript(vm, {
+        batchesPerCategory: 1,
+        itemsPerBatch: 5,
+      });
 
-      let batchCount = 0;
-      vi.mocked(mockWebview.executeJavaScript).mockImplementation(
-        async (code: string) => {
-          // Track batch starts by detecting clickManagePostsButton calls
-          if (code.includes('aria-label="Manage posts"')) {
-            if (code.includes("click()")) {
-              batchCount++;
-              // Allow 2 batches, then fail
-              return batchCount <= 2;
-            }
-          }
-          return false;
-        },
+      await DeleteJobs.runJobDeleteActivity(vm, 3);
+
+      // Loaded the activity log for the one selected category
+      expect(vm.loadURL).toHaveBeenCalledTimes(1);
+      expect(vm.loadURL).toHaveBeenCalledWith(
+        expect.stringContaining("category_key=MANAGEPOSTSPHOTOSANDVIDEOS"),
       );
 
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
+      // Toggled select-all and clicked the Trash button
+      const labels = vi
+        .mocked(vm.safeExecuteJavaScript)
+        .mock.calls.map((call) => call[1]);
+      expect(labels).toContain("toggleSelectAllCheckbox");
+      expect(labels).toContain("clickDeletePostsOption");
 
-      // Should have attempted multiple batches
-      expect(batchCount).toBeGreaterThanOrEqual(1);
+      // Incremented the correct counter and finished cleanly
+      expect(vm.progress.wallPostsDeleted).toBe(5);
+      expect(vm.progress.isDeleteActivityFinished).toBe(true);
+      expect(vm.progress.currentCategory).toBe("");
+      expect(vm.jobs[3].status).toBe("finished");
+      expect(vm.error).not.toHaveBeenCalled();
     });
 
-    it("handles errors from safeExecuteJavaScript gracefully", async () => {
-      const vm = createMockFacebookViewModel();
-      vm.webview = null; // No webview available
+    it("exits the category loop cleanly when no items are selectable", async () => {
+      const vm = createMockFacebookViewModel({
+        facebookAccount: createMockFacebookAccount({ deleteWallPosts: true }),
+      });
+      // toggleSelectAllCheckbox immediately reports no checkbox => no items
+      mockSafeExecuteJavaScript(vm, { batchesPerCategory: 0 });
 
-      // Should complete without throwing
-      await expect(
-        DeleteJobs.runJobDeleteWallPosts(vm, 3),
-      ).resolves.not.toThrow();
+      await DeleteJobs.runJobDeleteActivity(vm, 3);
+
+      const labels = vi
+        .mocked(vm.safeExecuteJavaScript)
+        .mock.calls.map((call) => call[1]);
+      // We checked the select-all checkbox but never tried to delete
+      expect(labels).toContain("toggleSelectAllCheckbox");
+      expect(labels).not.toContain("clickDeletePostsOption");
+
+      expect(vm.progress.wallPostsDeleted).toBe(0);
+      expect(vm.progress.isDeleteActivityFinished).toBe(true);
+      expect(vm.jobs[3].status).toBe("finished");
+      expect(vm.error).not.toHaveBeenCalled();
     });
 
-    it("waits for pause at key points", async () => {
-      const vm = createMockFacebookViewModel();
-      const mockWebview = vm.getWebview()!;
+    it("processes multiple selected categories and increments each counter", async () => {
+      const vm = createMockFacebookViewModel({
+        facebookAccount: createMockFacebookAccount({
+          deleteWallPosts: true,
+          deleteComments: true,
+        }),
+      });
+      mockSafeExecuteJavaScript(vm, {
+        batchesPerCategory: 1,
+        itemsPerBatch: 3,
+      });
 
-      vi.mocked(mockWebview.executeJavaScript).mockResolvedValue(false);
+      await DeleteJobs.runJobDeleteActivity(vm, 3);
 
-      await DeleteJobs.runJobDeleteWallPosts(vm, 3);
+      // One activity-log load per selected category
+      expect(vm.loadURL).toHaveBeenCalledTimes(2);
+      expect(vm.loadURL).toHaveBeenCalledWith(
+        expect.stringContaining("category_key=MANAGEPOSTSPHOTOSANDVIDEOS"),
+      );
+      expect(vm.loadURL).toHaveBeenCalledWith(
+        expect.stringContaining("category_key=COMMENTSCLUSTER"),
+      );
 
-      expect(vm.waitForPause).toHaveBeenCalled();
+      expect(vm.progress.wallPostsDeleted).toBe(3);
+      expect(vm.progress.commentsDeleted).toBe(3);
+      expect(vm.progress.isDeleteActivityFinished).toBe(true);
+      expect(vm.jobs[3].status).toBe("finished");
+    });
+
+    it("errors the job when clicking the Trash button fails", async () => {
+      const vm = createMockFacebookViewModel({
+        facebookAccount: createMockFacebookAccount({ deleteWallPosts: true }),
+      });
+      mockSafeExecuteJavaScript(vm, {
+        batchesPerCategory: 1,
+        clickTrashSuccess: false,
+      });
+
+      await DeleteJobs.runJobDeleteActivity(vm, 3);
+
+      expect(vm.error).toHaveBeenCalledWith(
+        AutomationErrorType.facebook_runJob_deleteWallPosts_SelectDeleteOptionFailed,
+        expect.objectContaining({
+          message: "Failed to click Trash button",
+        }),
+        expect.objectContaining({ currentURL: expect.any(String) }),
+      );
+      expect(vm.jobs[3].status).toBe("error");
+      // The job errored before completing, so it is never marked finished
+      expect(vm.progress.isDeleteActivityFinished).toBe(false);
     });
   });
 });
