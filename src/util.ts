@@ -75,21 +75,9 @@ export const getDataPath = () => {
     setConfig("dataPath", dataPath);
   }
 
-  // Make sure the folder exists and is usable. Documents can be unavailable
-  // (for example, because of folder protection or a disconnected sync
-  // provider). Falling back keeps the desktop window from failing to start.
-  try {
+  // Make sure the folder exists
+  if (!fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true });
-    fs.accessSync(dataPath, fs.constants.R_OK | fs.constants.W_OK);
-  } catch (error) {
-    const fallbackDataPath = path.join(app.getPath("userData"), "data");
-    console.error(
-      `Unable to use configured data path ${dataPath}; falling back to ${fallbackDataPath}`,
-      error,
-    );
-    fs.mkdirSync(fallbackDataPath, { recursive: true });
-    setConfig("dataPath", fallbackDataPath);
-    dataPath = fallbackDataPath;
   }
 
   return dataPath;
