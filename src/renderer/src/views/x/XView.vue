@@ -87,7 +87,6 @@ const {
   automationNoticeProps,
   webviewProps,
   updateAccount,
-  updateUserAuthenticated,
   updateUserPremium,
   setState,
   startStateLoop,
