@@ -13,6 +13,8 @@ export async function facebookPostProgress(
     {
       account_uuid: progressInfo.accountUUID,
       total_wall_posts_deleted: progressInfo.totalWallPostsDeleted,
+      total_wall_posts_untagged: progressInfo.totalWallPostsUntagged,
+      total_wall_posts_hidden: progressInfo.totalWallPostsHidden,
     },
     deviceInfo?.valid ? true : false,
   );
@@ -34,13 +36,13 @@ export async function facebookPostProgress(
 export async function facebookGetLastDelete(
   accountID: number,
 ): Promise<Date | null> {
-  const lastFinishedJob_deleteWallPosts =
+  const lastFinishedJob_deleteActivity =
     await window.electron.Facebook.getConfig(
       accountID,
-      "lastFinishedJob_deleteWallPosts",
+      "lastFinishedJob_deleteActivity",
     );
-  if (lastFinishedJob_deleteWallPosts) {
-    return new Date(lastFinishedJob_deleteWallPosts);
+  if (lastFinishedJob_deleteActivity) {
+    return new Date(lastFinishedJob_deleteActivity);
   }
   return null;
 }

@@ -19,6 +19,7 @@ export default tseslint.config(
       "global.d.ts",
       "forge.env.d.ts",
       "docs/**/*",
+      ".agents/**/*",
     ],
   },
   // TypeScript files
@@ -44,6 +45,11 @@ export default tseslint.config(
           varsIgnorePattern: "^_",
         },
       ],
+      // Disable preserve-caught-error - our packageExceptionForReport() intentionally
+      // serializes errors for reporting without preserving the cause chain
+      "preserve-caught-error": "off",
+      // Disable no-useless-assignment - too strict for development/debugging patterns
+      "no-useless-assignment": "off",
     },
   },
   // Vue files
@@ -61,5 +67,12 @@ export default tseslint.config(
       },
     },
     extends: [pluginVue.configs["flat/recommended"], eslintConfigPrettier],
+    rules: {
+      // Disable preserve-caught-error - our packageExceptionForReport() intentionally
+      // serializes errors for reporting without preserving the cause chain
+      "preserve-caught-error": "off",
+      // Disable no-useless-assignment - too strict for development/debugging patterns
+      "no-useless-assignment": "off",
+    },
   },
 );

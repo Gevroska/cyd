@@ -3,8 +3,18 @@ import { RunJobsState } from "./types";
 import * as Helpers from "./helpers";
 import { checkRateLimit } from "./rate_limit";
 import { AutomationErrorType } from "../../automation_errors";
+import {
+  selectedDeleteCategories,
+  type FacebookDeleteCategory,
+} from "./categories";
 
-const FACEBOOK_PROFILE_URL = "https://www.facebook.com/me/";
+const ACTIVITY_LOG_CHECKBOX_NAME = "comet_activity_log_select_all_checkbox";
+
+// Facebook throttles consecutive bulk deletions. Cool down between batches, and if it
+// reports it's "still processing the previous changes", back off and retry
+const BATCH_COOLDOWN_MS = 5000;
+const PROCESSING_BACKOFF_MS = 60000;
+const MAX_PROCESSING_RETRIES = 15;
 
 async function reportDeleteWallPostsError(
   vm: FacebookViewModel,
@@ -19,151 +29,21 @@ async function reportDeleteWallPostsError(
 }
 
 /**
- * Click the "Manage posts" button on the profile page
+ * Toggle a checkbox by name and return success
  */
-async function clickManagePostsButton(vm: FacebookViewModel): Promise<boolean> {
-  const result = await vm.safeExecuteJavaScript<boolean>(
-    `(() => {
-      const buttons = document.querySelectorAll('div[aria-label="Manage posts"][role="button"]');
-      if (buttons.length > 0) {
-        buttons[0].click();
-        return true;
-      }
-      return false;
-    })()`,
-    "clickManagePostsButton",
-  );
-  return result.success && result.value;
-}
-
-/**
- * Wait for the "Manage posts" dialog to appear
- */
-async function waitForManagePostsDialog(
+async function toggleSelectAllCheckbox(
   vm: FacebookViewModel,
-): Promise<boolean> {
-  // Wait up to 30 seconds for dialog to appear
-  for (let i = 0; i < 60; i++) {
-    const result = await vm.safeExecuteJavaScript<boolean>(
-      `(() => {
-        const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-        return !!dialog;
-      })()`,
-      "waitForManagePostsDialog",
-    );
-
-    if (!result.success) {
-      return false;
-    }
-
-    if (result.value) {
-      // Give it a moment for content to load
-      await vm.sleep(500);
-      return true;
-    }
-    await vm.sleep(500);
-  }
-  return false;
-}
-
-/**
- * Wait for the "Manage posts" dialog to disappear
- * This indicates the deletion process has completed
- */
-async function waitForManagePostsDialogToDisappear(
-  vm: FacebookViewModel,
-): Promise<boolean> {
-  // Wait up to 60 seconds for dialog to disappear (deletion might take a while)
-  for (let i = 0; i < 120; i++) {
-    const result = await vm.safeExecuteJavaScript<boolean>(
-      `(() => {
-        const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-        return !!dialog;
-      })()`,
-      "waitForManagePostsDialogToDisappear",
-    );
-
-    if (!result.success) {
-      return false;
-    }
-
-    if (!result.value) {
-      vm.log("waitForManagePostsDialogToDisappear", "Dialog has disappeared");
-      return true;
-    }
-    await vm.sleep(500);
-  }
-
-  vm.log(
-    "waitForManagePostsDialogToDisappear",
-    "Timeout waiting for dialog to disappear",
-  );
-  return false;
-}
-
-/**
- * Get the action description text from the dialog
- * Returns text like "You can hide or delete the posts selected." or empty string
- */
-async function getActionDescription(vm: FacebookViewModel): Promise<string> {
-  const result = await vm.safeExecuteJavaScript<string>(
-    `(() => {
-      const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-      if (!dialog) return "";
-
-      // Find the actions description span
-      // It's nested in the structure described by the user
-      // We'll search for spans that contain text about deletion/hiding
-      const spans = dialog.querySelectorAll('span');
-      for (const span of spans) {
-        const text = span.textContent?.trim() || "";
-        if (text.startsWith("You can")) {
-          return text;
-        }
-      }
-      return "";
-    })()`,
-    "getActionDescription",
-  );
-  return result.success ? result.value || "" : "";
-}
-
-/**
- * Check if the action description allows deletion
- */
-function canDelete(actionDescription: string): boolean {
-  return (
-    actionDescription.startsWith("You can") &&
-    actionDescription.toLowerCase().includes("delete")
-  );
-}
-
-/**
- * Toggle a checkbox by index and return success
- */
-async function toggleCheckbox(
-  vm: FacebookViewModel,
-  listIndex: number,
-  itemIndex: number,
   shouldCheck: boolean,
 ): Promise<boolean> {
   const result = await vm.safeExecuteJavaScript<boolean>(
     `(() => {
-      const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-      if (!dialog) return false;
-
-      const lists = dialog.querySelectorAll('div[role="list"]');
-      if (${listIndex} >= lists.length) return false;
-
-      const list = lists[${listIndex}];
-      const items = list.querySelectorAll('div[role="listitem"]');
-      if (${itemIndex} >= items.length) return false;
-
-      const item = items[${itemIndex}];
-      const checkbox = item.querySelector('input[type="checkbox"]');
+      const checkbox = document.querySelector('input[name="${ACTIVITY_LOG_CHECKBOX_NAME}"]');
       if (!checkbox) return false;
 
-      const isChecked = checkbox.getAttribute('aria-checked') === 'true';
+      // aria-checked is the string "true"/"false"; fall back to the native checked prop.
+      const ariaChecked = checkbox.getAttribute('aria-checked');
+      const isChecked = ariaChecked === 'true' ? true : (ariaChecked === 'false' ? false : checkbox.checked);
+
       const shouldCheck = ${shouldCheck};
 
       // Only click if we need to change the state
@@ -171,415 +51,359 @@ async function toggleCheckbox(
         checkbox.click();
         return true;
       }
-      return false;
+      return true;
     })()`,
-    "toggleCheckbox",
+    "toggleSelectAllCheckbox",
   );
   return result.success && result.value;
 }
 
 /**
- * Get the total number of lists and items
+ * Count the selectable items (row checkboxes, excluding the "select all" header checkbox)
+ * so we can report how many items a delete batch removed.
  */
-async function getListsAndItems(
-  vm: FacebookViewModel,
-): Promise<{ listIndex: number; itemIndex: number }[]> {
-  const result = await vm.safeExecuteJavaScript<
-    { listIndex: number; itemIndex: number }[]
-  >(
+async function countSelectableItems(vm: FacebookViewModel): Promise<number> {
+  const result = await vm.safeExecuteJavaScript<number>(
     `(() => {
-      const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-      if (!dialog) return [];
-
-      const lists = dialog.querySelectorAll('div[role="list"]');
-      const result = [];
-
-      for (let listIndex = 0; listIndex < lists.length; listIndex++) {
-        const list = lists[listIndex];
-        const listItems = list.querySelectorAll('div[role="listitem"]');
-
-        for (let itemIndex = 0; itemIndex < listItems.length; itemIndex++) {
-          const item = listItems[itemIndex];
-          const checkbox = item.querySelector('input[type="checkbox"]');
-          if (checkbox) {
-            result.push({ listIndex, itemIndex });
-          }
-        }
+      // Row selectors can be <input type=checkbox> or [role=checkbox]; exclude the
+      // "select all" header control either way.
+      const candidates = document.querySelectorAll('input[type="checkbox"], [role="checkbox"]');
+      let count = 0;
+      for (const el of candidates) {
+        if (el.getAttribute && el.getAttribute('name') === '${ACTIVITY_LOG_CHECKBOX_NAME}') continue;
+        count++;
       }
-
-      return result;
+      return count;
     })()`,
-    "getListsAndItems",
+    "countSelectableItems",
   );
-  return result.success ? result.value : [];
+  return result.success && typeof result.value === "number" ? result.value : 0;
 }
 
 /**
- * Click the Next button in the dialog
+ * Click the delete action in the activity-log toolbar. Facebook labels this differently
+ * per category ("Remove", "Delete", "Trash", "Move to Trash", "Remove tags", etc.).
+ * The toolbar appears after items are selected, so poll for it to show up.
  */
-async function clickNextButton(vm: FacebookViewModel): Promise<boolean> {
-  const result = await vm.safeExecuteJavaScript<boolean>(
-    `(() => {
-      const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-      if (!dialog) return false;
-
-      const nextButton = dialog.querySelector('div[aria-label="Next"][role="button"]');
-      if (nextButton) {
-        nextButton.click();
-        return true;
-      }
-      return false;
-    })()`,
-    "clickNextButton",
-  );
-  return result.success && result.value;
-}
-
-/**
- * Select the "Delete posts" radio button in the action selection dialog
- * Looks for a div with text "delete posts" (case insensitive), checks it's not disabled,
- * and clicks the radio button (i tag) inside it
- */
-async function selectDeletePostsOption(
+async function clickDeletePostsOption(
   vm: FacebookViewModel,
+  timeoutMs: number = 10000,
 ): Promise<boolean> {
-  const result = await vm.safeExecuteJavaScript<boolean>(
-    `(() => {
-      const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-      if (!dialog) return false;
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const result = await vm.safeExecuteJavaScript<boolean>(
+      `(() => {
+        const LABELS = ['remove', 'delete', 'trash', 'move to trash', 'remove tags', 'remove tag', 'untag'];
 
-      // Find all divs that might contain the delete posts option
-      const divs = dialog.querySelectorAll('div[aria-disabled]');
-      
-      for (const div of divs) {
-        // Check if this div or its children contain text about deleting posts
-        const text = div.textContent?.toLowerCase() || '';
-        if (text.includes('delete posts')) {
-          // Check that it's not disabled
-          if (div.getAttribute('aria-disabled') === 'false') {
-            // Find the radio button (i tag) inside this div
-            const radioButton = div.querySelector('i');
-            if (radioButton) {
-              radioButton.click();
-              return true;
-            }
-          } else {
-            console.log('Delete posts option is disabled');
-            return false;
+        // First try a proper button with a matching aria-label.
+        for (const el of document.querySelectorAll('[role="button"][aria-label]')) {
+          const label = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+          if (LABELS.includes(label) && el.getAttribute('aria-disabled') !== 'true') {
+            el.click();
+            return true;
           }
         }
+
+        // Otherwise find the small element whose visible text is one of the labels.
+        let target = null;
+        for (const el of document.querySelectorAll('span, div')) {
+          if (el.children.length > 1) continue; // innermost text node only
+          const text = (el.textContent || '').trim().toLowerCase();
+          if (LABELS.includes(text)) { target = el; break; }
+        }
+        if (!target) return false;
+
+        // Click the clickable ancestor: the one that contains FB's overlay catcher.
+        let node = target;
+        for (let i = 0; i < 6 && node; i++) {
+          const overlay = node.querySelector && node.querySelector('[data-visualcompletion="ignore"]');
+          if (overlay) { overlay.click(); node.click(); return true; }
+          node = node.parentElement;
+        }
+        target.click();
+        return true;
+      })()`,
+      "clickDeletePostsOption",
+    );
+    if (result.success && result.value) {
+      return true;
+    }
+    await vm.sleep(500);
+  }
+  return false;
+}
+
+/**
+ * Confirm the "Move to trash?" dialog that appears after clicking Trash.
+ * Best-effort: some flows delete without a confirmation step.
+ */
+async function confirmDeletion(vm: FacebookViewModel): Promise<boolean> {
+  const result = await vm.safeExecuteJavaScript<boolean>(
+    `(() => {
+      const dialog = document.querySelector('div[role="dialog"][aria-modal="true"]');
+      if (!dialog) return false;
+      const CONFIRM_LABELS = ['delete', 'move to trash', 'confirm', 'remove', 'remove tags', 'remove tag', 'untag'];
+      const buttons = dialog.querySelectorAll('div[role="button"], button');
+      for (const button of buttons) {
+        const label = (button.getAttribute('aria-label') || button.textContent || '').trim().toLowerCase();
+        if (CONFIRM_LABELS.includes(label)) {
+          if (button.getAttribute('aria-disabled') === 'true') return false;
+          button.click();
+          return true;
+        }
       }
-      
-      console.log('Could not find delete posts option');
       return false;
     })()`,
-    "selectDeletePostsOption",
+    "confirmDeletion",
   );
   return result.success && result.value;
 }
 
 /**
- * Click the Done button in the dialog
+ * Detect Facebook's "We're still processing the previous changes / Try again later" modal,
+ * which appears when we attempt to delete again too soon.
  */
-async function clickDoneButton(vm: FacebookViewModel): Promise<boolean> {
+async function isStillProcessing(vm: FacebookViewModel): Promise<boolean> {
   const result = await vm.safeExecuteJavaScript<boolean>(
     `(() => {
-      const dialog = document.querySelector('div[aria-label="Manage posts"][role="dialog"]');
-      if (!dialog) return false;
-
-      const doneButton = dialog.querySelector('div[aria-label="Done"][role="button"]');
-      if (doneButton) {
-        doneButton.click();
-        return true;
-      }
-      return false;
+      const text = (document.body.innerText || '').toLowerCase();
+      return text.includes('still processing the previous changes') ||
+             text.includes('try again later');
     })()`,
-    "clickDoneButton",
+    "isStillProcessing",
   );
   return result.success && result.value;
 }
 
-export async function runJobDeleteWallPosts(
+/**
+ * Dismiss a modal by clicking its OK/Close button.
+ */
+async function dismissModal(vm: FacebookViewModel): Promise<void> {
+  await vm.safeExecuteJavaScript<boolean>(
+    `(() => {
+      const dialog = document.querySelector('div[role="dialog"]');
+      if (!dialog) return false;
+      const buttons = dialog.querySelectorAll('div[role="button"], button');
+      for (const button of buttons) {
+        const label = (button.getAttribute('aria-label') || button.textContent || '').trim().toLowerCase();
+        if (['ok', 'okay', 'close', 'got it', 'dismiss'].includes(label)) {
+          button.click();
+          return true;
+        }
+      }
+      return false;
+    })()`,
+    "dismissModal",
+  );
+}
+
+/**
+ * Wait for a delete batch to be applied: the select-all checkbox clears or disappears.
+ */
+async function waitForBatchToComplete(
+  vm: FacebookViewModel,
+  timeoutMs: number = 30000,
+): Promise<boolean> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const settled = await vm.safeExecuteJavaScript<boolean>(
+      `(() => {
+        const checkbox = document.querySelector('input[name="${ACTIVITY_LOG_CHECKBOX_NAME}"]');
+        if (!checkbox) return true; // no items left
+        const ariaChecked = checkbox.getAttribute('aria-checked');
+        const isChecked = ariaChecked === 'true' ? true : (ariaChecked === 'false' ? false : checkbox.checked);
+        return !isChecked; // selection cleared => batch applied
+      })()`,
+      "waitForBatchToComplete",
+    );
+    if (settled.success && settled.value) {
+      return true;
+    }
+    await vm.sleep(500);
+  }
+  return false;
+}
+
+async function loadActivityLog(
+  vm: FacebookViewModel,
+  categoryKey: string,
+): Promise<void> {
+  if (vm.account.facebookAccount) {
+    vm.log(
+      "loadActivityLog",
+      `Loading activity log for category key: ${categoryKey}`,
+    );
+
+    const FACEBOOK_ACTIVITY_LOG_URL = `https://www.facebook.com/${vm.account.facebookAccount.accountID}/\
+allactivity?activity_history=false&category_key=${categoryKey}\
+&manage_mode=true&should_load_landing_page=false`;
+
+    await vm.loadURL(FACEBOOK_ACTIVITY_LOG_URL);
+    await vm.waitForLoadingToFinish();
+
+    await vm.waitForPause();
+  }
+}
+
+/**
+ * Delete every item in a single activity-log category, batch by batch, until none remain.
+ * Returns the number of items deleted, or null if the job errored.
+ */
+async function deleteCategory(
   vm: FacebookViewModel,
   jobIndex: number,
-): Promise<void> {
-  vm.runJobsState = RunJobsState.DeleteWallPosts;
+  category: FacebookDeleteCategory,
+): Promise<number | null> {
+  await loadActivityLog(vm, category.categoryKey);
 
-  vm.showBrowser = true;
-  vm.showAutomationNotice = true;
-  vm.instructions = vm.t("viewModels.facebook.jobs.deletingWallPosts");
+  let processingRetries = 0;
 
-  vm.log("runJobDeleteWallPosts", "Loading profile page");
-
-  await vm.waitForPause();
-
-  // Load the user's profile page
-  await vm.loadURL(FACEBOOK_PROFILE_URL);
-  await vm.waitForLoadingToFinish();
-
-  await vm.waitForPause();
-
-  // Keep deleting posts until there are no more to delete
-  let totalDeleted = 0;
-  let batchNumber = 0;
-  const maxToCheck = 10;
-
+  // Keep deleting until there are no more items to delete
   while (true) {
     // Check for rate limits
     await checkRateLimit(vm);
-
-    batchNumber++;
-    vm.log("runJobDeleteWallPosts", `Starting batch ${batchNumber}`);
-
-    vm.log("runJobDeleteWallPosts", "Clicking Manage posts button");
-
-    // Click the Manage posts button
-    // safeExecuteJavaScript handles webview validation and errors
-    const buttonClicked = await clickManagePostsButton(vm);
-    if (!buttonClicked) {
-      await reportDeleteWallPostsError(
-        vm,
-        jobIndex,
-        AutomationErrorType.facebook_runJob_deleteWallPosts_ClickManagePostsFailed,
-        {
-          batchNumber,
-          message: "Failed to click Manage posts button",
-        },
-      );
-      return;
-    }
-
     await vm.waitForPause();
 
-    // Wait for the dialog to open
-    const dialogOpened = await waitForManagePostsDialog(vm);
-    if (!dialogOpened) {
-      await reportDeleteWallPostsError(
-        vm,
-        jobIndex,
-        AutomationErrorType.facebook_runJob_deleteWallPosts_DialogNotFound,
-        {
-          batchNumber,
-          message: "Manage posts dialog did not appear",
-        },
-      );
-      return;
-    }
-
-    vm.log("runJobDeleteWallPosts", "Dialog opened, waiting for posts to load");
-
-    await vm.waitForPause();
-
-    // Wait for items to appear in the dialog (with 30 second timeout)
-    // On slow connections, the dialog content may take time to load
-    let allItems: { listIndex: number; itemIndex: number }[] = [];
-    const maxWaitTime = 30000; // 30 seconds
-    const pollInterval = 500; // Check every 500ms
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < maxWaitTime) {
-      allItems = await getListsAndItems(vm);
-      if (allItems.length > 0) {
-        vm.log(
-          "runJobDeleteWallPosts",
-          `Found ${allItems.length} items after ${Date.now() - startTime}ms`,
+    // Facebook may still be processing the previous batch; back off and retry.
+    if (await isStillProcessing(vm)) {
+      processingRetries++;
+      if (processingRetries > MAX_PROCESSING_RETRIES) {
+        await reportDeleteWallPostsError(
+          vm,
+          jobIndex,
+          AutomationErrorType.facebook_runJob_deleteWallPosts_CompletionTimeout,
+          {
+            category: category.setting,
+            message: "Facebook kept reporting it was still processing",
+          },
         );
-        break;
+        return null;
       }
-      await vm.sleep(pollInterval);
-    }
-
-    if (allItems.length === 0) {
       vm.log(
-        "runJobDeleteWallPosts",
-        `No items found after ${maxWaitTime}ms timeout, proceeding anyway`,
+        "deleteCategory",
+        `Facebook still processing previous changes; backing off (retry ${processingRetries})`,
       );
+      await dismissModal(vm);
+      await vm.sleep(PROCESSING_BACKOFF_MS);
+      await loadActivityLog(vm, category.categoryKey);
+      continue;
     }
+    processingRetries = 0;
 
-    vm.log(
-      "runJobDeleteWallPosts",
-      `Found ${allItems.length} items with checkboxes`,
-    );
-
-    let checkedCount = 0;
-
-    // Loop through items and check those that can be deleted
-    for (const { listIndex, itemIndex } of allItems) {
-      // Check for rate limits
-      await checkRateLimit(vm);
-
-      if (checkedCount >= maxToCheck) {
-        vm.log(
-          "runJobDeleteWallPosts",
-          `Reached maximum of ${maxToCheck} items`,
-        );
-        break;
-      }
-
-      await vm.waitForPause();
-
-      // Check this checkbox
-      const toggled = await toggleCheckbox(vm, listIndex, itemIndex, true);
-      if (!toggled) {
-        vm.log(
-          "runJobDeleteWallPosts",
-          `Failed to check item [${listIndex}][${itemIndex}]`,
-        );
-        continue;
-      }
-
-      // Wait a moment for the UI to update
-      await vm.sleep(300);
-
-      // Check the action description
-      const actionDescription = await getActionDescription(vm);
+    // If there are no items to delete, we're done with this category. Facebook may
+    // still render the "select all" checkbox when empty, so gate on the item count
+    // rather than the checkbox's presence.
+    const batchCount = await countSelectableItems(vm);
+    if (batchCount === 0) {
       vm.log(
-        "runJobDeleteWallPosts",
-        `Action description: "${actionDescription}"`,
+        "deleteCategory",
+        `No more items for category ${category.setting}`,
       );
-
-      if (canDelete(actionDescription)) {
-        // This item can be deleted, keep it checked
-        checkedCount++;
-        vm.log(
-          "runJobDeleteWallPosts",
-          `Checked deletable item ${checkedCount}/${maxToCheck}`,
-        );
-      } else {
-        // This item cannot be deleted, uncheck it
-        vm.log(
-          "runJobDeleteWallPosts",
-          `Item [${listIndex}][${itemIndex}] cannot be deleted, unchecking`,
-        );
-        await toggleCheckbox(vm, listIndex, itemIndex, false);
-        await vm.sleep(300);
-      }
+      break;
     }
 
-    vm.log(
-      "runJobDeleteWallPosts",
-      `Selected ${checkedCount} items for deletion`,
-    );
-
-    // If nothing was checked, we're done
-    if (checkedCount === 0) {
-      vm.log("runJobDeleteWallPosts", "No deletable items found, finishing");
+    // Select all currently loaded items
+    const toggled = await toggleSelectAllCheckbox(vm, true);
+    if (!toggled) {
+      vm.log(
+        "deleteCategory",
+        `Could not select items for category ${category.setting}`,
+      );
       break;
     }
 
     await vm.waitForPause();
 
-    // Click the Next button
-    vm.log("runJobDeleteWallPosts", "Clicking Next button");
-    const nextClicked = await clickNextButton(vm);
-    if (!nextClicked) {
-      await reportDeleteWallPostsError(
-        vm,
-        jobIndex,
-        AutomationErrorType.facebook_runJob_deleteWallPosts_ClickNextFailed,
-        {
-          batchNumber,
-          message: "Failed to click Next button",
-        },
-      );
-      return;
-    }
-
-    // Wait for the dialog to update with the action options
-    await vm.sleep(1000);
-
-    await vm.waitForPause();
-
-    // Click the "Delete posts" radio button
-    vm.log("runJobDeleteWallPosts", "Selecting delete posts option");
-    const deleteSelected = await selectDeletePostsOption(vm);
-    if (!deleteSelected) {
+    // Click on trash
+    const deletedBtnClicked = await clickDeletePostsOption(vm);
+    if (!deletedBtnClicked) {
+      vm.log("deleteCategory", `Failed to click "Trash" button`);
       await reportDeleteWallPostsError(
         vm,
         jobIndex,
         AutomationErrorType.facebook_runJob_deleteWallPosts_SelectDeleteOptionFailed,
-        {
-          batchNumber,
-          message: "Failed to select delete posts option",
-        },
+        { category: category.setting, message: "Failed to click Trash button" },
       );
-      return;
+      return null;
     }
 
-    vm.log("runJobDeleteWallPosts", "Delete posts option selected");
+    // Confirm the deletion dialog if one appears
+    await vm.sleep(1000);
+    await confirmDeletion(vm);
 
-    await vm.waitForPause();
+    // If Facebook says it's still processing, don't count this batch; back off and retry.
+    if (await isStillProcessing(vm)) {
+      vm.log(
+        "deleteCategory",
+        "Facebook still processing after confirm; backing off",
+      );
+      await dismissModal(vm);
+      await vm.sleep(PROCESSING_BACKOFF_MS);
+      await loadActivityLog(vm, category.categoryKey);
+      continue;
+    }
 
-    // Click the Done button
-    vm.log("runJobDeleteWallPosts", "Clicking Done button");
-    const doneClicked = await clickDoneButton(vm);
-    if (!doneClicked) {
+    const completed = await waitForBatchToComplete(vm);
+    if (!completed) {
       await reportDeleteWallPostsError(
         vm,
         jobIndex,
-        AutomationErrorType.facebook_runJob_deleteWallPosts_ClickDoneFailed,
-        {
-          batchNumber,
-          message: "Failed to click Done button",
-        },
+        AutomationErrorType.facebook_runJob_deleteWallPosts_CompletionTimeout,
+        { category: category.setting, message: "Batch did not complete" },
       );
-      return;
+      return null;
     }
 
-    vm.log("runJobDeleteWallPosts", "Done button clicked");
-
-    await vm.waitForPause();
-
-    // Wait for the dialog to disappear (indicates deletion is complete)
-    vm.log("runJobDeleteWallPosts", "Waiting for deletion to complete...");
-    const dialogDisappeared = await waitForManagePostsDialogToDisappear(vm);
-    if (!dialogDisappeared) {
-      vm.log(
-        "runJobDeleteWallPosts",
-        "Timeout waiting for dialog to disappear",
-      );
-      // Continue anyway - the deletion might have worked
-    } else {
-      vm.log("runJobDeleteWallPosts", "Deletion completed successfully");
-    }
-
-    // Update progress
-    totalDeleted += checkedCount;
-    vm.progress.wallPostsDeleted = totalDeleted;
-    vm.log(
-      "runJobDeleteWallPosts",
-      `Batch ${batchNumber} complete: deleted ${checkedCount} posts, total: ${totalDeleted}`,
-    );
-
-    // Update the persistent counter in the database
-    await window.electron.Facebook.incrementTotalWallPostsDeleted(
-      vm.account.id,
-      checkedCount,
-    );
-
-    // Submit progress to the API
+    // Record progress for this batch
+    vm.progress[category.counter] += batchCount;
+    await Helpers.incrementCumulativeTotal(vm, category.counter, batchCount);
     vm.emitter?.emit(`facebook-submit-progress-${vm.account.id}`);
 
-    await vm.waitForPause();
-
-    // Give Facebook a few seconds before refreshing
-    // It seems that this helps
-    await vm.sleep(3000);
-
-    // Reload the profile page to see any newly available posts
-    vm.log("runJobDeleteWallPosts", "Reloading profile page for next batch");
-    await vm.loadURL(FACEBOOK_PROFILE_URL);
-    await vm.waitForLoadingToFinish();
+    // Cool down before the next batch to avoid tripping Facebook's throttle.
+    await vm.sleep(BATCH_COOLDOWN_MS);
   }
 
-  vm.log(
-    "runJobDeleteWallPosts",
-    `All done! Total posts deleted: ${totalDeleted}`,
-  );
+  return vm.progress[category.counter];
+}
+
+export async function runJobDeleteActivity(
+  vm: FacebookViewModel,
+  jobIndex: number,
+): Promise<void> {
+  vm.runJobsState = RunJobsState.DeleteActivity;
+
+  vm.showBrowser = true;
+  vm.showAutomationNotice = true;
+  vm.progress.isDeleteActivityFinished = false;
+
+  // Delete each data category the user selected. Every category uses the identical
+  // activity-log flow and differs only by its category_key.
+  const categories = vm.account.facebookAccount
+    ? selectedDeleteCategories(vm.account.facebookAccount)
+    : [];
+
+  for (const category of categories) {
+    await vm.waitForPause();
+
+    vm.progress.currentCategory = category.setting;
+    vm.instructions = vm.t("viewModels.facebook.jobs.deletingCategory", {
+      category: vm.t(category.labelKey),
+    });
+
+    const deleted = await deleteCategory(vm, jobIndex, category);
+    if (deleted === null) {
+      // deleteCategory already marked the job as errored
+      return;
+    }
+  }
+
+  vm.progress.currentCategory = "";
+  vm.progress.isDeleteActivityFinished = true;
+  vm.log("runJobDeleteActivity", "All done!");
 
   await vm.waitForPause();
 
-  // Always submit final progress to the API (even if 0 posts were deleted)
+  // Always submit final progress to the API (even if 0 items were deleted)
   vm.emitter?.emit(`facebook-submit-progress-${vm.account.id}`);
 
   await Helpers.finishJob(vm, jobIndex);
