@@ -479,7 +479,7 @@ describe("jobs_delete.ts", () => {
       await DeleteJobs.runJobDeleteLikes(vm, 0);
 
       expect(vm.loadURLWithRateLimit).toHaveBeenCalledWith(
-        "https://x.com/testuser/likes",
+        "https://x.com/i/history/likes",
       );
     });
 

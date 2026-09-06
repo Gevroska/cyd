@@ -565,8 +565,7 @@ export async function runJobIndexLikes(
   // Load the likes
   await vm.waitForPause();
   await window.electron.X.resetRateLimitInfo(vm.account.id);
-  const username = vm.account.xAccount?.username || "";
-  const url = `https://x.com/${username}/likes`;
+  const url = "https://x.com/i/history/likes";
   await vm.loadURLWithRateLimit(url);
   await vm.sleep(500);
 
