@@ -259,9 +259,7 @@ export async function runJobDeleteLikes(
   // Load the likes page
   vm.showBrowser = true;
   vm.showAutomationNotice = true;
-  await vm.loadURLWithRateLimit(
-    `https://x.com/${vm.account.xAccount?.username}/likes`,
-  );
+  await vm.loadURLWithRateLimit("https://x.com/i/history/likes");
 
   // Hide the browser and start showing other progress instead
   vm.showBrowser = false;

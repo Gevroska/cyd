@@ -765,6 +765,16 @@ describe("jobs_index.ts", () => {
       );
     });
 
+    it("should load the current likes history page", async () => {
+      vi.spyOn(vm, "doesSelectorExist").mockResolvedValue(true);
+
+      await IndexJobs.runJobIndexLikes(vm, 0);
+
+      expect(vm.loadURLWithRateLimit).toHaveBeenCalledWith(
+        "https://x.com/i/history/likes",
+      );
+    });
+
     it("should set correct UI state", async () => {
       // Mock empty state to exit immediately
       vi.spyOn(vm, "doesSelectorExist").mockResolvedValue(true);
