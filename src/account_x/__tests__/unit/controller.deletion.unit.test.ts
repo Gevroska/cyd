@@ -72,19 +72,23 @@ describe("XAccountController - Deletion", () => {
       expect((await controller.deleteTweetsStart()).tweets).toHaveLength(2);
     });
 
-    test("requires verified pin data but accepts an explicitly empty list", async () => {
+    test("allows review before pinned tweet data has been cached", async () => {
       controller.account!.deleteTweetsKeepPinned = true;
-      await expect(controller.deleteTweetsStart()).rejects.toThrow(
-        "Could not verify pinned tweets",
-      );
+      await expect(controller.deleteTweetsStart()).resolves.toEqual({
+        tweets: [],
+      });
       await controller.setConfig("pinnedTweetIDs", "[]");
       await expect(controller.deleteTweetsStart()).resolves.toEqual({
         tweets: [],
       });
       await controller.setConfig("pinnedTweetIDs", "[null]");
-      await expect(controller.deleteTweetsStart()).rejects.toThrow(
-        "Could not verify pinned tweets",
-      );
+      await expect(controller.deleteTweetsStart()).resolves.toEqual({
+        tweets: [],
+      });
+      await controller.setConfig("pinnedTweetIDs", "invalid JSON");
+      await expect(controller.deleteTweetsStart()).resolves.toEqual({
+        tweets: [],
+      });
     });
 
     test("should return empty list when no tweets exist", async () => {

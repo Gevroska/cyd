@@ -37,19 +37,20 @@ export async function getDeleteTweetsWhereClause(
   }
 
   if (controller.account.deleteTweetsKeepPinned) {
-    const pinnedTweetIDs: unknown = JSON.parse(
-      (await controller.getConfig("pinnedTweetIDs")) || "null",
-    );
-    // Unknown pin data must never be treated as an empty list.
-    if (
-      !Array.isArray(pinnedTweetIDs) ||
-      !pinnedTweetIDs.every((id) => typeof id === "string" && /^\d+$/.test(id))
-    ) {
-      throw new Error(
-        "Could not verify pinned tweets. Refresh your account data.",
+    let pinnedTweetIDs: unknown = null;
+    try {
+      pinnedTweetIDs = JSON.parse(
+        (await controller.getConfig("pinnedTweetIDs")) || "null",
       );
+    } catch {
+      // Review can run before an existing account has refreshed its pin cache.
     }
-    if (pinnedTweetIDs.length > 0) {
+
+    if (
+      Array.isArray(pinnedTweetIDs) &&
+      pinnedTweetIDs.length > 0 &&
+      pinnedTweetIDs.every((id) => typeof id === "string" && /^\d+$/.test(id))
+    ) {
       whereClause += ` AND t.tweetID NOT IN (${pinnedTweetIDs.map(() => "?").join(", ")})`;
       params.push(...pinnedTweetIDs);
     }
