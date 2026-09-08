@@ -662,7 +662,7 @@ export async function runJobIndexBookmarks(
   // Load the bookmarks
   await vm.waitForPause();
   await window.electron.X.resetRateLimitInfo(vm.account.id);
-  const url = "https://x.com/i/bookmarks";
+  const url = "https://x.com/i/history";
   await vm.loadURLWithRateLimit(url);
   await vm.sleep(500);
 

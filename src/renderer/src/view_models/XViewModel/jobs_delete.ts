@@ -357,7 +357,7 @@ export async function runJobDeleteBookmarks(
   // Load the bookmarks page
   vm.showBrowser = true;
   vm.showAutomationNotice = true;
-  await vm.loadURLWithRateLimit("https://x.com/i/bookmarks");
+  await vm.loadURLWithRateLimit("https://x.com/i/history");
 
   // Hide the browser and start showing other progress instead
   vm.showBrowser = false;
