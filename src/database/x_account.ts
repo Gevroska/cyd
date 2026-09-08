@@ -22,6 +22,7 @@ interface XAccountRow {
   archiveBookmarks: boolean;
   archiveDMs: boolean;
   deleteTweets: boolean;
+  deleteTweetsKeepPinned: boolean;
   deleteTweetsDaysOldEnabled: boolean;
   deleteTweetsDaysOld: number;
   deleteTweetsLikesThresholdEnabled: boolean;
@@ -73,6 +74,7 @@ function xAccountRowtoXAccount(row: XAccountRow): XAccount {
     archiveBookmarks: !!row.archiveBookmarks,
     archiveDMs: !!row.archiveDMs,
     deleteTweets: !!row.deleteTweets,
+    deleteTweetsKeepPinned: !!row.deleteTweetsKeepPinned,
     deleteTweetsDaysOldEnabled: !!row.deleteTweetsDaysOldEnabled,
     deleteTweetsDaysOld: row.deleteTweetsDaysOld,
     deleteTweetsLikesThresholdEnabled: !!row.deleteTweetsLikesThresholdEnabled,
@@ -171,6 +173,7 @@ export const saveXAccount = (account: XAccount) => {
             archiveBookmarks = ?,
             archiveDMs = ?,
             deleteTweets = ?,
+            deleteTweetsKeepPinned = ?,
             deleteTweetsDaysOld = ?,
             deleteTweetsDaysOldEnabled = ?,
             deleteTweetsLikesThresholdEnabled = ?,
@@ -217,6 +220,7 @@ export const saveXAccount = (account: XAccount) => {
       account.archiveBookmarks ? 1 : 0,
       account.archiveDMs ? 1 : 0,
       account.deleteTweets ? 1 : 0,
+      account.deleteTweetsKeepPinned ? 1 : 0,
       account.deleteTweetsDaysOld,
       account.deleteTweetsDaysOldEnabled ? 1 : 0,
       account.deleteTweetsLikesThresholdEnabled ? 1 : 0,

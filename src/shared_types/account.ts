@@ -28,6 +28,7 @@ export type XAccount = {
   archiveBookmarks: boolean;
   archiveDMs: boolean;
   deleteTweets: boolean;
+  deleteTweetsKeepPinned: boolean;
   deleteTweetsDaysOldEnabled: boolean;
   deleteTweetsDaysOld: number;
   deleteTweetsLikesThresholdEnabled: boolean;

@@ -115,7 +115,17 @@ export async function graphqlGetViewerUser(
     } else {
       try {
         const viewerResults: XViewerResults = JSON.parse(resp);
+        const pinnedTweetIDs =
+          viewerResults.data.viewer.user_results.result.legacy
+            .pinned_tweet_ids_str;
         const userInfo: XUserInfo = {
+          pinnedTweetIDs:
+            Array.isArray(pinnedTweetIDs) &&
+            pinnedTweetIDs.every(
+              (id) => typeof id === "string" && /^\d+$/.test(id),
+            )
+              ? pinnedTweetIDs
+              : undefined,
           username:
             viewerResults.data.viewer.user_results.result.legacy.screen_name,
           userID: viewerResults.data.viewer.user_results.result.rest_id,

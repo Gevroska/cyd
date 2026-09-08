@@ -151,6 +151,7 @@ describe("XViewModel", () => {
         deleteTweetsLikesThreshold: 0,
         deleteTweetsRetweetsThresholdEnabled: false,
         deleteTweetsRetweetsThreshold: 0,
+        deleteTweetsKeepPinned: false,
         deleteRetweets: false,
         deleteRetweetsDaysOldEnabled: false,
         deleteRetweetsDaysOld: 0,

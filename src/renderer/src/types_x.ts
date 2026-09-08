@@ -71,6 +71,7 @@ export interface XViewerResults {
 }
 
 export interface XUserInfo {
+  pinnedTweetIDs?: string[];
   username: string;
   userID: string;
   bio: string;

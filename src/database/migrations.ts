@@ -216,5 +216,11 @@ export const runMainMigrations = () => {
         `ALTER TABLE facebookAccount ADD COLUMN deleteTaggedMedia INTEGER DEFAULT 0;`,
       ],
     },
+    {
+      name: "add pinned tweet deletion protection to xAccount",
+      sql: [
+        `ALTER TABLE xAccount ADD COLUMN deleteTweetsKeepPinned BOOLEAN DEFAULT 0;`,
+      ],
+    },
   ]);
 };

@@ -279,6 +279,7 @@
     "buildFromScratch": "Build database from scratch",
     "buildFromScratchDescription": "X restricts how much of your data you can access. You likely won't get all of your data if you have Cyd build it from scratch. Building from scratch is a great way to backup your direct messages, though.",
     "deleteMyTweets": "Delete my tweets",
+    "deleteTweetsKeepPinned": "Do not delete my pinned tweet",
     "deleteMyRetweets": "Delete my retweets",
     "deleteMyLikes": "Delete my likes",
     "deleteMyBookmarks": "Delete my bookmarks",

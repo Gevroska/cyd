@@ -155,6 +155,7 @@ describe("graphql.ts", () => {
                 followers_count: 200,
                 statuses_count: 500,
                 favourites_count: 300,
+                pinned_tweet_ids_str: ["1817118091706302558"],
               },
             },
           },
@@ -223,6 +224,7 @@ describe("graphql.ts", () => {
         followersCount: 200,
         tweetsCount: 500,
         likesCount: 300,
+        pinnedTweetIDs: ["1817118091706302558"],
       } as XUserInfo);
     });
 

@@ -33,6 +33,29 @@ export async function runJobDeleteTweets(
   vm.runJobsState = RunJobsState.DeleteTweets;
   vm.instructions = vm.t("viewModels.x.jobs.delete.tweets");
 
+  // Refresh protection before loading candidates, including resumed jobs.
+  if (vm.account.xAccount?.deleteTweetsKeepPinned) {
+    const userInfo = await vm.graphqlGetViewerUser();
+    if (
+      !userInfo ||
+      userInfo.userID !== vm.account.xAccount.userID ||
+      !Array.isArray(userInfo.pinnedTweetIDs) ||
+      !userInfo.pinnedTweetIDs.every(
+        (id) => typeof id === "string" && /^\d+$/.test(id),
+      )
+    ) {
+      await vm.error(AutomationErrorType.x_runJob_deleteTweets_FailedToStart, {
+        error: "Could not verify pinned tweets. No tweets were deleted.",
+      });
+      return;
+    }
+    await window.electron.X.setConfig(
+      vm.account.id,
+      "pinnedTweetIDs",
+      JSON.stringify(userInfo.pinnedTweetIDs),
+    );
+  }
+
   // Load the tweets to delete
   const tweetsToDelete = await deleteTweetsLoadList(
     vm,
