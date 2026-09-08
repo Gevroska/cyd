@@ -2,7 +2,9 @@ import { getTimestampDaysAgo } from "../../../util";
 import type { XAccountController } from "../../x_account_controller";
 
 // Shared by the deletion list, review, and unarchived-tweet warning.
-export async function getDeleteTweetsWhereClause(controller: XAccountController) {
+export async function getDeleteTweetsWhereClause(
+  controller: XAccountController,
+) {
   if (!controller.account) {
     throw new Error("Account not found");
   }
@@ -41,9 +43,7 @@ export async function getDeleteTweetsWhereClause(controller: XAccountController)
     // Unknown pin data must never be treated as an empty list.
     if (
       !Array.isArray(pinnedTweetIDs) ||
-      !pinnedTweetIDs.every(
-        (id) => typeof id === "string" && /^\d+$/.test(id),
-      )
+      !pinnedTweetIDs.every((id) => typeof id === "string" && /^\d+$/.test(id))
     ) {
       throw new Error(
         "Could not verify pinned tweets. Refresh your account data.",
