@@ -81,7 +81,7 @@ describe("XAccountController - Deletion", () => {
       await expect(controller.deleteTweetsStart()).resolves.toEqual({
         tweets: [],
       });
-      await controller.setConfig("pinnedTweetIDs", '[null]');
+      await controller.setConfig("pinnedTweetIDs", "[null]");
       await expect(controller.deleteTweetsStart()).rejects.toThrow(
         "Could not verify pinned tweets",
       );

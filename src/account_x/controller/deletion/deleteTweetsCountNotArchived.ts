@@ -32,7 +32,8 @@ export async function deleteTweetsCountNotArchived(
       "get",
     ) as Sqlite3Count;
   } else {
-    const { whereClause, params } = await getDeleteTweetsWhereClause(controller);
+    const { whereClause, params } =
+      await getDeleteTweetsWhereClause(controller);
     count = exec(
       controller.db,
       `SELECT COUNT(*) AS count FROM tweet t WHERE t.archivedAt IS NULL AND ${whereClause}`,
