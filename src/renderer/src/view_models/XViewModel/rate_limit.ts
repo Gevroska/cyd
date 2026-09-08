@@ -4,6 +4,15 @@ import { AutomationErrorType } from "../../automation_errors";
 import { formatError } from "../../util";
 import { emptyXRateLimitInfo } from "../../../../shared_types";
 
+function isKnownCanonicalRedirect(originalURL: URL, newURL: URL): boolean {
+  return (
+    originalURL.origin === "https://x.com" &&
+    newURL.origin === originalURL.origin &&
+    /^\/[^/]+\/likes\/?$/.test(originalURL.pathname) &&
+    newURL.pathname === "/i/history/likes"
+  );
+}
+
 export async function waitForRateLimit(vm: XViewModel): Promise<void> {
   vm.log("waitForRateLimit", vm.rateLimitInfo);
 
@@ -71,7 +80,10 @@ export async function loadURLWithRateLimit(
         newURL.origin + newURL.pathname !==
         originalURL.origin + originalURL.pathname
       ) {
-        let changedToUnexpected = true;
+        let changedToUnexpected = !isKnownCanonicalRedirect(
+          originalURL,
+          newURL,
+        );
         for (const expectedURL of expectedURLs) {
           if (
             typeof expectedURL === "string" &&
