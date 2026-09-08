@@ -50,6 +50,43 @@ describe("XAccountController - Deletion", () => {
   });
 
   describe("deleteTweetsStart", () => {
+    test("keeps pinned tweets out of deletion and unarchived counts when enabled", async () => {
+      const pinnedID = "1817118091706302558";
+      seedTweet(controller, {
+        tweetID: pinnedID,
+        createdAt: getTimestampDaysAgo(60),
+      });
+      seedTweet(controller, {
+        tweetID: "123",
+        createdAt: getTimestampDaysAgo(60),
+      });
+      await controller.setConfig("pinnedTweetIDs", JSON.stringify([pinnedID]));
+      controller.account!.deleteTweetsKeepPinned = true;
+
+      const protectedResult = await controller.deleteTweetsStart();
+      expect(protectedResult.tweets.map((tweet) => tweet.id)).toEqual(["123"]);
+      expect(await controller.deleteTweetsCountNotArchived(false)).toBe(1);
+      expect(await controller.deleteTweetsCountNotArchived(true)).toBe(2);
+
+      controller.account!.deleteTweetsKeepPinned = false;
+      expect((await controller.deleteTweetsStart()).tweets).toHaveLength(2);
+    });
+
+    test("requires verified pin data but accepts an explicitly empty list", async () => {
+      controller.account!.deleteTweetsKeepPinned = true;
+      await expect(controller.deleteTweetsStart()).rejects.toThrow(
+        "Could not verify pinned tweets",
+      );
+      await controller.setConfig("pinnedTweetIDs", "[]");
+      await expect(controller.deleteTweetsStart()).resolves.toEqual({
+        tweets: [],
+      });
+      await controller.setConfig("pinnedTweetIDs", '[null]');
+      await expect(controller.deleteTweetsStart()).rejects.toThrow(
+        "Could not verify pinned tweets",
+      );
+    });
+
     test("should return empty list when no tweets exist", async () => {
       const result = await controller.deleteTweetsStart();
 

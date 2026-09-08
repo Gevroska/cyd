@@ -107,6 +107,11 @@ export async function login(vm: XViewModel): Promise<void> {
     vm.account.xAccount.tweetsCount = userInfo.tweetsCount;
     vm.account.xAccount.likesCount = userInfo.likesCount;
   }
+  await window.electron.X.setConfig(
+    vm.account.id,
+    "pinnedTweetIDs",
+    JSON.stringify(userInfo.pinnedTweetIDs ?? null),
+  );
   await window.electron.database.saveAccount(JSON.stringify(vm.account));
   vm.log("login", ["saved user information", userInfo]);
 

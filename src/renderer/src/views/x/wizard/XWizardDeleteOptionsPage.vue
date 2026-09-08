@@ -76,6 +76,7 @@ const deleteLikesShowMoreClicked = () => {
 
 // Settings
 const deleteTweets = ref(false);
+const deleteTweetsKeepPinned = ref(false);
 const deleteTweetsDaysOldEnabled = ref(false);
 const deleteTweetsDaysOld = ref(0);
 const deleteTweetsRetweetsThresholdEnabled = ref(false);
@@ -134,6 +135,7 @@ const loadSettings = async () => {
     );
     if (account && account.xAccount) {
       deleteTweets.value = account.xAccount.deleteTweets;
+      deleteTweetsKeepPinned.value = account.xAccount.deleteTweetsKeepPinned;
       deleteTweetsDaysOld.value = account.xAccount.deleteTweetsDaysOld;
       deleteTweetsDaysOldEnabled.value =
         account.xAccount.deleteTweetsDaysOldEnabled;
@@ -163,7 +165,8 @@ const loadSettings = async () => {
       deleteTweets.value &&
       (deleteTweetsDaysOldEnabled.value ||
         deleteTweetsRetweetsThresholdEnabled.value ||
-        deleteTweetsLikesThresholdEnabled.value)
+        deleteTweetsLikesThresholdEnabled.value ||
+        deleteTweetsKeepPinned.value)
     ) {
       deleteTweetsShowMore.value = true;
     }
@@ -206,6 +209,7 @@ const saveSettings = async () => {
       account.xAccount.archiveMyData = false;
 
       account.xAccount.deleteTweets = deleteTweets.value;
+      account.xAccount.deleteTweetsKeepPinned = deleteTweetsKeepPinned.value;
       account.xAccount.deleteTweetsDaysOldEnabled =
         deleteTweetsDaysOldEnabled.value;
       account.xAccount.deleteTweetsDaysOld = deleteTweetsDaysOld.value;
@@ -461,6 +465,18 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div class="form-check mt-2">
+                <input
+                  id="deleteTweetsKeepPinned"
+                  v-model="deleteTweetsKeepPinned"
+                  type="checkbox"
+                  class="form-check-input"
+                  :disabled="!deleteTweets || !hasSomeData"
+                />
+                <label class="form-check-label" for="deleteTweetsKeepPinned">
+                  {{ t("wizard.deleteTweetsKeepPinned") }}
+                </label>
               </div>
             </div>
           </div>

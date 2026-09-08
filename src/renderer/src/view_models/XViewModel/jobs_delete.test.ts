@@ -53,6 +53,22 @@ describe("jobs_delete.ts", () => {
   });
 
   describe("runJobDeleteTweets", () => {
+    it("stops before loading or deleting tweets if pin verification fails", async () => {
+      vm.account.xAccount!.deleteTweetsKeepPinned = true;
+      vi.spyOn(vm, "graphqlGetViewerUser").mockResolvedValue(null);
+
+      await DeleteJobs.runJobDeleteTweets(vm, 0);
+
+      expect(mockElectron.X.deleteTweetsStart).not.toHaveBeenCalled();
+      expect(vm.graphqlDelete).not.toHaveBeenCalled();
+      expect(vm.error).toHaveBeenCalledWith(
+        AutomationErrorType.x_runJob_deleteTweets_FailedToStart,
+        expect.objectContaining({
+          error: "Could not verify pinned tweets. No tweets were deleted.",
+        }),
+      );
+    });
+
     const mockDeleteTweetsData: XDeleteTweetsStartResponse = {
       tweets: [
         createMockTweetItem({ id: "1", t: "Test tweet 1" }),
