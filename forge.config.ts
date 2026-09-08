@@ -265,8 +265,13 @@ const config: ForgeConfig = {
         process.env.WINDOWS_RELEASE === "true"
           ? `/v /n "Lockdown Systems LLC" /fd sha256 /td sha256 /tr http://ts.harica.gr /d "${process.env.CYD_ENV == "prod" ? "Cyd" : "Cyd Dev"}"`
           : undefined,
-      // For auto-updates
-      remoteReleases: `https://releases.lockdown.systems/cyd/${process.env.CYD_ENV}/windows/${process.arch}`,
+      // Only published releases need the remote package history for delta updates.
+      // Including it in local/CI builds can make Squirrel bundle a newer remote
+      // package instead of the application that was just built.
+      remoteReleases:
+        process.env.WINDOWS_RELEASE === "true"
+          ? `https://releases.lockdown.systems/cyd/${process.env.CYD_ENV}/windows/${process.arch}`
+          : undefined,
       noDelta: process.env.WINDOWS_RELEASE === "true" ? false : true,
     }),
     // macOS DMG

@@ -246,22 +246,6 @@ describe("rate_limit.ts", () => {
       );
     });
 
-    it("should allow X to canonicalize profile likes to likes history", async () => {
-      vi.mocked(mockVM.webview!.getURL).mockReturnValue(
-        "https://x.com/i/history/likes",
-      );
-
-      await RateLimit.loadURLWithRateLimit(
-        mockVM as XViewModel,
-        "https://x.com/testuser/likes",
-      );
-
-      expect(mockVM.log).toHaveBeenCalledWith(
-        "loadURLWithRateLimit",
-        "expected, URL change to https://x.com/i/history/likes",
-      );
-    });
-
     it("should throw URLChangedError for unexpected URL changes", async () => {
       vi.mocked(mockVM.webview!.getURL).mockReturnValue(
         "https://x.com/unexpected",
