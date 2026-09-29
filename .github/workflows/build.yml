@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -36,3 +39,27 @@ jobs:
           name: cyd-${{ matrix.os }}
           path: out/**
           if-no-files-found: warn
+
+      - name: Publish standalone Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = "out/make/squirrel.windows/x64/CydDevSetup.exe"
+
+          if (-not (Test-Path $installer)) {
+            throw "Installer not found: $installer"
+          }
+
+          if (gh release view dev-latest --repo "${{ github.repository }}" 2>$null) {
+            gh release upload dev-latest $installer --clobber --repo "${{ github.repository }}"
+          }
+          else {
+            gh release create dev-latest $installer `
+              --repo "${{ github.repository }}" `
+              --target "${{ github.sha }}" `
+              --title "Cyd Dev Latest" `
+              --notes "Automatically updated with the latest development Windows build." `
+              --prerelease
+          }
