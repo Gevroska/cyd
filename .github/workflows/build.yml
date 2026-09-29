@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: cyd-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -138,6 +142,11 @@ jobs:
 
           if (gh release view dev-latest --repo "${{ github.repository }}" 2>$null) {
             gh release upload dev-latest $publishPath --clobber --repo "${{ github.repository }}"
+
+            gh api --method PATCH `
+              "repos/${{ github.repository }}/git/refs/tags/dev-latest" `
+              -f sha="${{ github.sha }}" `
+              -F force=true
           }
           else {
             gh release create dev-latest $publishPath `
