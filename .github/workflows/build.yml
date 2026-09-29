@@ -1,21 +1,23 @@
-name: Build Cyd
+name: Build and Test Cyd
 
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest]
+  test-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
 
-    runs-on: ${{ matrix.os }}
+    env:
+      ELECTRON_CACHE: /tmp/.cache/electron
+      ELECTRON_BUILDER_CACHE: /tmp/.cache/electron-builder
 
     steps:
       - name: Checkout
@@ -27,8 +29,78 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install Linux test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 xvfb
+
       - name: Install dependencies
         run: npm ci
+        env:
+          CI: true
+
+      - name: Rebuild better-sqlite3 for Electron
+        run: |
+          ELECTRON_VERSION=$(node -e "console.log(require('./node_modules/electron/package.json').version)")
+          echo "Rebuilding better-sqlite3 for Electron $ELECTRON_VERSION"
+          npm_config_runtime=electron npm_config_target=$ELECTRON_VERSION npm_config_disturl=https://electronjs.org/headers npm_config_build_from_source=true npm rebuild better-sqlite3
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: xvfb-run -a npm run test:ci
+        env:
+          CI: true
+
+  build:
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      ELECTRON_CACHE: /tmp/.cache/electron
+      ELECTRON_BUILDER_CACHE: /tmp/.cache/electron-builder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux test dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 xvfb
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild better-sqlite3 for Electron
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          ELECTRON_VERSION=$(node -e "console.log(require('./node_modules/electron/package.json').version)")
+          echo "Rebuilding better-sqlite3 for Electron $ELECTRON_VERSION"
+          npm_config_runtime=electron npm_config_target=$ELECTRON_VERSION npm_config_disturl=https://electronjs.org/headers npm_config_build_from_source=true npm rebuild better-sqlite3
+
+      - name: Run lint
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run lint
+
+      - name: Run tests
+        if: matrix.os == 'ubuntu-latest'
+        run: xvfb-run -a npm run test:ci
+        env:
+          CI: true
 
       - name: Build app
         run: npm run make-dev
@@ -46,17 +118,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $installer = "out/make/squirrel.windows/x64/CydDevSetup.exe"
+          $setupRoot = Join-Path $PWD "out\make\squirrel.windows"
 
-          if (-not (Test-Path $installer)) {
-            throw "Installer not found: $installer"
+          $installer = Get-ChildItem -Path $setupRoot -Recurse -File -Filter "*.exe" |
+            Where-Object { $_.Name -match "Setup\.exe$" } |
+            Sort-Object @{ Expression = { if ($_.Name -eq "CydDevSetup.exe") { 0 } else { 1 } } }, FullName |
+            Select-Object -First 1
+
+          if (-not $installer) {
+            Write-Host "Files generated under out/make:"
+            Get-ChildItem -Path (Join-Path $PWD "out\make") -Recurse -File |
+              ForEach-Object { Write-Host $_.FullName }
+            throw "No Squirrel Setup.exe installer was found."
           }
+
+          $publishPath = Join-Path $env:RUNNER_TEMP "CydDevSetup.exe"
+          Copy-Item -Path $installer.FullName -Destination $publishPath -Force
+          Write-Host "Publishing installer: $($installer.FullName)"
 
           if (gh release view dev-latest --repo "${{ github.repository }}" 2>$null) {
-            gh release upload dev-latest $installer --clobber --repo "${{ github.repository }}"
+            gh release upload dev-latest $publishPath --clobber --repo "${{ github.repository }}"
           }
           else {
-            gh release create dev-latest $installer `
+            gh release create dev-latest $publishPath `
               --repo "${{ github.repository }}" `
               --target "${{ github.sha }}" `
               --title "Cyd Dev Latest" `
