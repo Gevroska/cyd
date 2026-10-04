@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount, VueWrapper } from "@vue/test-utils";
+import { flushPromises, mount, VueWrapper } from "@vue/test-utils";
 import XWizardDeleteOptionsPage from "./XWizardDeleteOptionsPage.vue";
 import { XViewModel, State } from "../../../view_models/XViewModel";
 import type { XAccount } from "../../../../../shared_types";
@@ -27,7 +27,13 @@ vi.mock("../components/XLastImportOrBuildComponent.vue", () => ({
 vi.mock("../../shared_components/wizard/BaseWizardPage.vue", () => ({
   default: {
     name: "BaseWizardPage",
-    template: "<div><slot></slot></div>",
+    template: `<div>
+      <slot name="content" />
+      <button v-for="button in buttonProps.backButtons" :key="button.label"
+        :disabled="button.disabled" @click="button.action()">{{ button.label }}</button>
+      <button v-for="button in buttonProps.nextButtons" :key="button.label"
+        :disabled="button.disabled" @click="button.action()">{{ button.label }}</button>
+    </div>`,
     props: ["breadcrumbProps", "buttonProps"],
   },
 }));
@@ -164,6 +170,66 @@ describe("XWizardDeleteOptionsPage", () => {
       await toggles[2].trigger("click");
 
       expect(wrapper.find("#deleteLikesDaysOldEnabled").exists()).toBe(true);
+    });
+  });
+
+  describe("reply tweet protection", () => {
+    it("loads a saved choice, opens the options, and saves checkbox changes", async () => {
+      const mockModel = createMockModel({
+        xAccount: { deleteTweets: true, deleteTweetsKeepReplies: true },
+      });
+      vi.mocked(window.electron.database.getAccount).mockResolvedValue(
+        mockModel.account!,
+      );
+      wrapper = mount(XWizardDeleteOptionsPage, {
+        props: { model: mockModel as XViewModel },
+        global: { plugins: [i18n] },
+      });
+      await flushPromises();
+
+      const checkbox = wrapper.get("#deleteTweetsKeepReplies");
+      expect((checkbox.element as HTMLInputElement).checked).toBe(true);
+      expect(wrapper.get('label[for="deleteTweetsKeepReplies"]').text()).toBe(
+        "Do not delete my reply tweets",
+      );
+      expect((checkbox.element as HTMLInputElement).disabled).toBe(false);
+
+      await checkbox.setValue(false);
+      const continueButton = wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Continue to Review"))!;
+      await continueButton.trigger("click");
+      await flushPromises();
+      expect(window.electron.database.saveAccount).toHaveBeenLastCalledWith(
+        expect.any(String),
+      );
+      const saved = vi.mocked(window.electron.database.saveAccount).mock.calls;
+      expect(
+        JSON.parse(saved.at(-1)![0]).xAccount.deleteTweetsKeepReplies,
+      ).toBe(false);
+
+      await checkbox.setValue(true);
+      await continueButton.trigger("click");
+      await flushPromises();
+      expect(
+        JSON.parse(saved.at(-1)![0]).xAccount.deleteTweetsKeepReplies,
+      ).toBe(true);
+    });
+
+    it("disables reply protection when tweet deletion is off", async () => {
+      wrapper = mount(XWizardDeleteOptionsPage, {
+        props: { model: createMockModel() as XViewModel },
+        global: { plugins: [i18n] },
+      });
+      await flushPromises();
+      const toggle = wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Show more options"))!;
+      await toggle.trigger("click");
+      expect(
+        (wrapper.get("#deleteTweetsKeepReplies").element as HTMLInputElement)
+          .disabled,
+      ).toBe(true);
     });
   });
 });

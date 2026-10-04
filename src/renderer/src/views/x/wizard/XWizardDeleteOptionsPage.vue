@@ -8,6 +8,7 @@ import type { StandardWizardPageProps } from "../../../types/WizardPage";
 import { useWizardPage } from "../../../composables/useWizardPage";
 import BaseWizardPage from "../../shared_components/wizard/BaseWizardPage.vue";
 import XLastImportOrBuildComponent from "../components/XLastImportOrBuildComponent.vue";
+import XDirectMessagesWithdrawnComponent from "../components/XDirectMessagesWithdrawnComponent.vue";
 
 const { t } = useI18n();
 
@@ -77,6 +78,7 @@ const deleteLikesShowMoreClicked = () => {
 // Settings
 const deleteTweets = ref(false);
 const deleteTweetsKeepPinned = ref(false);
+const deleteTweetsKeepReplies = ref(false);
 const deleteTweetsDaysOldEnabled = ref(false);
 const deleteTweetsDaysOld = ref(0);
 const deleteTweetsRetweetsThresholdEnabled = ref(false);
@@ -90,7 +92,6 @@ const deleteLikes = ref(false);
 const deleteLikesDaysOldEnabled = ref(false);
 const deleteLikesDaysOld = ref(0);
 const deleteBookmarks = ref(false);
-const deleteDMs = ref(false);
 const unfollowEveryone = ref(false);
 
 const hasSomeData = ref(false);
@@ -115,9 +116,8 @@ const hasValidSelection = computed(() => {
         deleteRetweets.value ||
         deleteLikes.value ||
         deleteBookmarks.value ||
-        unfollowEveryone.value ||
-        deleteDMs.value)) ||
-    (!hasSomeData.value && (unfollowEveryone.value || deleteDMs.value))
+        unfollowEveryone.value)) ||
+    (!hasSomeData.value && unfollowEveryone.value)
   );
 });
 
@@ -136,6 +136,7 @@ const loadSettings = async () => {
     if (account && account.xAccount) {
       deleteTweets.value = account.xAccount.deleteTweets;
       deleteTweetsKeepPinned.value = account.xAccount.deleteTweetsKeepPinned;
+      deleteTweetsKeepReplies.value = account.xAccount.deleteTweetsKeepReplies;
       deleteTweetsDaysOld.value = account.xAccount.deleteTweetsDaysOld;
       deleteTweetsDaysOldEnabled.value =
         account.xAccount.deleteTweetsDaysOldEnabled;
@@ -156,7 +157,6 @@ const loadSettings = async () => {
         account.xAccount.deleteLikesDaysOldEnabled;
       deleteLikesDaysOld.value = account.xAccount.deleteLikesDaysOld;
       deleteBookmarks.value = account.xAccount.deleteBookmarks;
-      deleteDMs.value = account.xAccount.deleteDMs;
       unfollowEveryone.value = account.xAccount.unfollowEveryone;
     }
 
@@ -166,7 +166,8 @@ const loadSettings = async () => {
       (deleteTweetsDaysOldEnabled.value ||
         deleteTweetsRetweetsThresholdEnabled.value ||
         deleteTweetsLikesThresholdEnabled.value ||
-        deleteTweetsKeepPinned.value)
+        deleteTweetsKeepPinned.value ||
+        deleteTweetsKeepReplies.value)
     ) {
       deleteTweetsShowMore.value = true;
     }
@@ -210,6 +211,7 @@ const saveSettings = async () => {
 
       account.xAccount.deleteTweets = deleteTweets.value;
       account.xAccount.deleteTweetsKeepPinned = deleteTweetsKeepPinned.value;
+      account.xAccount.deleteTweetsKeepReplies = deleteTweetsKeepReplies.value;
       account.xAccount.deleteTweetsDaysOldEnabled =
         deleteTweetsDaysOldEnabled.value;
       account.xAccount.deleteTweetsDaysOld = deleteTweetsDaysOld.value;
@@ -230,7 +232,6 @@ const saveSettings = async () => {
         deleteLikesDaysOldEnabled.value;
       account.xAccount.deleteLikesDaysOld = deleteLikesDaysOld.value;
       account.xAccount.deleteBookmarks = deleteBookmarks.value;
-      account.xAccount.deleteDMs = deleteDMs.value;
       account.xAccount.unfollowEveryone = unfollowEveryone.value;
 
       await window.electron.database.saveAccount(JSON.stringify(account));
@@ -478,6 +479,18 @@ onMounted(async () => {
                   {{ t("wizard.deleteTweetsKeepPinned") }}
                 </label>
               </div>
+              <div class="form-check mt-2">
+                <input
+                  id="deleteTweetsKeepReplies"
+                  v-model="deleteTweetsKeepReplies"
+                  type="checkbox"
+                  class="form-check-input"
+                  :disabled="!deleteTweets || !hasSomeData"
+                />
+                <label class="form-check-label" for="deleteTweetsKeepReplies">
+                  {{ t("wizard.deleteTweetsKeepReplies") }}
+                </label>
+              </div>
             </div>
           </div>
 
@@ -695,33 +708,7 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- deleteDMs -->
-          <div class="mb-3">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="d-flex align-items-center">
-                <div class="form-check">
-                  <input
-                    id="deleteDMs"
-                    v-model="deleteDMs"
-                    type="checkbox"
-                    class="form-check-input"
-                    @change="updateProceedState"
-                  />
-                  <label
-                    class="form-check-label mr-1 text-nowrap"
-                    for="deleteDMs"
-                  >
-                    {{ t("wizard.deleteMyDMs") }}
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="indent">
-              <small class="form-text text-muted">
-                {{ t("wizard.dmsDescription") }}
-              </small>
-            </div>
-          </div>
+          <XDirectMessagesWithdrawnComponent />
         </form>
       </div>
     </template>
