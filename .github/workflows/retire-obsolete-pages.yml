@@ -1,0 +1,48 @@
+name: Retire obsolete Pages deployments
+
+on:
+  push:
+    branches: [codex/retire-obsolete-pages]
+    paths: [.github/workflows/retire-obsolete-pages.yml]
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  retire:
+    if: github.repository == 'Gevroska/cyd'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Retire the two failed March 19 documentation deployments
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/deployments?environment=github-pages&per_page=100" > deployments.json
+          jq -e '
+            length == 2 and all(.[];
+              .environment == "github-pages" and
+              (.sha == "853ed27c5530d51403df11547887726ac0a3f59b" or
+               .sha == "92097bebd78453d2be847e7f0168e18499efa300"))
+          ' deployments.json > /dev/null
+          while read -r deployment_id; do
+            state=$(gh api "repos/$GH_REPO/deployments/$deployment_id/statuses" --jq '.[0].state')
+            if [ "$state" = "inactive" ]; then
+              echo "Deployment $deployment_id is already inactive."
+              continue
+            fi
+            if [ "$state" != "failure" ]; then
+              echo "Refusing to change deployment $deployment_id with state $state."
+              exit 1
+            fi
+            gh api --method POST "repos/$GH_REPO/deployments/$deployment_id/statuses" \
+              -f state=inactive \
+              -f description="Obsolete documentation workflow retired; no Pages site was deployed." \
+              -F auto_inactive=false --silent
+            updated=$(gh api "repos/$GH_REPO/deployments/$deployment_id/statuses" --jq '.[0].state')
+            test "$updated" = "inactive"
+            echo "Deployment $deployment_id verified inactive."
+          done < <(jq -r '.[].id' deployments.json)
