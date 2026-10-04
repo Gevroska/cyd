@@ -125,12 +125,21 @@ jobs:
           path: out/**
           if-no-files-found: error
 
+      - name: Prepare standalone Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem -LiteralPath (Join-Path $PWD "out\make\squirrel.windows") -Recurse -File |
+            Where-Object { $_.Name -match "Setup\.exe$" })
+          if ($installers.Count -ne 1) { throw "Expected exactly one Squirrel Setup.exe installer." }
+          Copy-Item -LiteralPath $installers[0].FullName -Destination (Join-Path $env:RUNNER_TEMP "CydDevSetup.exe") -Force
+
       - name: Upload standalone Windows installer
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: out/make/squirrel.windows/**/CydDevSetup.exe
+          path: ${{ runner.temp }}/CydDevSetup.exe
           if-no-files-found: error
 
   publish-windows:
@@ -191,3 +200,4 @@ jobs:
               --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release creation failed." }
           }
+
