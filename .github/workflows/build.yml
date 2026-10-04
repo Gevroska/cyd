@@ -30,8 +30,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+
+      - name: Match upstream npm version
+        run: npm install -g npm@12.0.2
 
       - name: Install Linux test dependencies
         run: |
@@ -77,8 +80,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+
+      - name: Match upstream npm version
+        run: npm install -g npm@12.0.2
 
       - name: Install Linux test dependencies
         if: matrix.os == 'ubuntu-latest'
@@ -109,20 +115,41 @@ jobs:
       - name: Build app
         run: npm run make-dev
 
+      - name: Verify packaged fork features
+        run: node scripts/verify-fork-build.mjs
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cyd-${{ matrix.os }}
           path: out/**
-          if-no-files-found: warn
+          if-no-files-found: error
+
+      - name: Upload standalone Windows installer
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: out/make/squirrel.windows/**/CydDevSetup.exe
+          if-no-files-found: error
+
+  publish-windows:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Download verified Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: installer
 
       - name: Publish standalone Windows installer
-        if: matrix.os == 'windows-latest'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $setupRoot = Join-Path $PWD "out\make\squirrel.windows"
+          $setupRoot = Join-Path $PWD "installer"
 
           $installer = Get-ChildItem -Path $setupRoot -Recurse -File -Filter "*.exe" |
             Where-Object { $_.Name -match "Setup\.exe$" } |
@@ -130,8 +157,8 @@ jobs:
             Select-Object -First 1
 
           if (-not $installer) {
-            Write-Host "Files generated under out/make:"
-            Get-ChildItem -Path (Join-Path $PWD "out\make") -Recurse -File |
+            Write-Host "Downloaded installer files:"
+            Get-ChildItem -Path $setupRoot -Recurse -File |
               ForEach-Object { Write-Host $_.FullName }
             throw "No Squirrel Setup.exe installer was found."
           }
@@ -139,20 +166,28 @@ jobs:
           $publishPath = Join-Path $env:RUNNER_TEMP "CydDevSetup.exe"
           Copy-Item -Path $installer.FullName -Destination $publishPath -Force
           Write-Host "Publishing installer: $($installer.FullName)"
+          $digest = (Get-FileHash -LiteralPath $publishPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $notes = "Windows build from commit ${{ github.sha }}. SHA256: $digest"
 
           if (gh release view dev-latest --repo "${{ github.repository }}" 2>$null) {
             gh release upload dev-latest $publishPath --clobber --repo "${{ github.repository }}"
+            if ($LASTEXITCODE -ne 0) { throw "Installer upload failed." }
+
+            gh release edit dev-latest --notes $notes --repo "${{ github.repository }}"
+            if ($LASTEXITCODE -ne 0) { throw "Release metadata update failed." }
 
             gh api --method PATCH `
               "repos/${{ github.repository }}/git/refs/tags/dev-latest" `
               -f sha="${{ github.sha }}" `
               -F force=true
+            if ($LASTEXITCODE -ne 0) { throw "Release tag update failed." }
           }
           else {
             gh release create dev-latest $publishPath `
               --repo "${{ github.repository }}" `
               --target "${{ github.sha }}" `
               --title "Cyd Dev Latest" `
-              --notes "Automatically updated with the latest development Windows build." `
+              --notes $notes `
               --prerelease
+            if ($LASTEXITCODE -ne 0) { throw "Release creation failed." }
           }

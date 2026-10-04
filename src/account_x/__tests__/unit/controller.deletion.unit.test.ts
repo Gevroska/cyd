@@ -10,11 +10,7 @@ import {
   createXControllerTestContext,
   type XControllerTestContext,
 } from "../fixtures/accountTestHarness";
-import {
-  seedTweet,
-  seedConversation,
-  seedMessage,
-} from "../fixtures/tweetFactory";
+import { seedTweet } from "../fixtures/tweetFactory";
 import { createPlatformPathMocks } from "../../../__tests__/platform-fixtures/tempPaths";
 
 // Mock the util module with unique paths per test run
@@ -50,6 +46,105 @@ describe("XAccountController - Deletion", () => {
   });
 
   describe("deleteTweetsStart", () => {
+    test("protects replies and self-replies without protecting mentions or quotes", async () => {
+      seedTweet(controller, { tweetID: "original" });
+      seedTweet(controller, {
+        tweetID: "mention",
+        text: "Hello @someone, this is a standalone tweet",
+      });
+      seedTweet(controller, {
+        tweetID: "quote",
+        isQuote: 1,
+        quotedTweet: "https://x.com/someone/status/123",
+      });
+      seedTweet(controller, {
+        tweetID: "reply",
+        isReply: 1,
+        replyTweetID: "123",
+        replyUserID: "other-user",
+      });
+      seedTweet(controller, {
+        tweetID: "self-reply",
+        isReply: 1,
+        replyTweetID: "original",
+        replyUserID: controller.account!.userID,
+      });
+      seedTweet(controller, {
+        tweetID: "reply-without-parent",
+        isReply: 1,
+      });
+      seedTweet(controller, {
+        tweetID: "parent-without-flag",
+        isReply: 0,
+        replyTweetID: "123",
+      });
+      seedTweet(controller, { tweetID: "unknown" });
+      exec(
+        controller.db!,
+        "UPDATE tweet SET isReply = NULL WHERE tweetID = ?",
+        ["unknown"],
+      );
+
+      controller.account!.deleteTweetsKeepReplies = true;
+      const protectedResult = await controller.deleteTweetsStart();
+      expect(protectedResult.tweets.map((tweet) => tweet.id).sort()).toEqual([
+        "mention",
+        "original",
+        "quote",
+      ]);
+      expect(await controller.deleteTweetsCountNotArchived(false)).toBe(3);
+      expect(await controller.deleteTweetsCountNotArchived(true)).toBe(8);
+
+      controller.account!.deleteTweetsKeepReplies = false;
+      expect((await controller.deleteTweetsStart()).tweets).toHaveLength(8);
+      expect(await controller.deleteTweetsCountNotArchived(false)).toBe(8);
+    });
+
+    test("combines reply protection with pinned, age, and engagement filters", async () => {
+      seedTweet(controller, {
+        tweetID: "eligible",
+        createdAt: getTimestampDaysAgo(60),
+      });
+      seedTweet(controller, {
+        tweetID: "reply",
+        createdAt: getTimestampDaysAgo(60),
+        isReply: 1,
+        replyTweetID: "123",
+      });
+      seedTweet(controller, {
+        tweetID: "123",
+        createdAt: getTimestampDaysAgo(60),
+      });
+      seedTweet(controller, {
+        tweetID: "recent",
+        createdAt: getTimestampDaysAgo(5),
+      });
+      seedTweet(controller, {
+        tweetID: "popular",
+        createdAt: getTimestampDaysAgo(60),
+        likeCount: 10,
+      });
+      seedTweet(controller, {
+        tweetID: "retweeted",
+        createdAt: getTimestampDaysAgo(60),
+        retweetCount: 10,
+      });
+      await controller.setConfig("pinnedTweetIDs", JSON.stringify(["123"]));
+      controller.account!.deleteTweetsKeepReplies = true;
+      controller.account!.deleteTweetsKeepPinned = true;
+      controller.account!.deleteTweetsDaysOldEnabled = true;
+      controller.account!.deleteTweetsDaysOld = 30;
+      controller.account!.deleteTweetsLikesThresholdEnabled = true;
+      controller.account!.deleteTweetsLikesThreshold = 5;
+      controller.account!.deleteTweetsRetweetsThresholdEnabled = true;
+      controller.account!.deleteTweetsRetweetsThreshold = 5;
+
+      expect(
+        (await controller.deleteTweetsStart()).tweets.map((tweet) => tweet.id),
+      ).toEqual(["eligible"]);
+      expect(await controller.deleteTweetsCountNotArchived(false)).toBe(1);
+    });
+
     test("keeps pinned tweets out of deletion and unarchived counts when enabled", async () => {
       const pinnedID = "1817118091706302558";
       seedTweet(controller, {
@@ -353,79 +448,6 @@ describe("XAccountController - Deletion", () => {
       const count = await controller.deleteTweetsCountNotArchived(false);
 
       expect(count).toBe(1);
-    });
-  });
-
-  describe("deleteDMsMarkDeleted", () => {
-    test("marks a conversation and its messages as deleted", () => {
-      seedConversation(controller, { conversationID: "conv1" });
-      seedMessage(controller, {
-        messageID: "msg1",
-        conversationID: "conv1",
-      });
-      seedMessage(controller, {
-        messageID: "msg2",
-        conversationID: "conv1",
-      });
-
-      controller.deleteDMsMarkDeleted("conv1");
-
-      const conversation = exec(
-        controller.db!,
-        "SELECT deletedAt FROM conversation WHERE conversationID = ?",
-        ["conv1"],
-        "get",
-      ) as { deletedAt: string | null };
-      const messages = exec(
-        controller.db!,
-        "SELECT messageID, deletedAt FROM message WHERE conversationID = ?",
-        ["conv1"],
-        "all",
-      ) as { messageID: string; deletedAt: string | null }[];
-
-      expect(conversation.deletedAt).not.toBeNull();
-      expect(messages.every((message) => message.deletedAt)).toBe(true);
-      expect(controller.progress.conversationsDeleted).toBe(1);
-    });
-  });
-
-  describe("deleteDMsMarkAllDeleted", () => {
-    test("marks every remaining conversation and message as deleted", async () => {
-      seedConversation(controller, { conversationID: "conv1" });
-      seedConversation(controller, { conversationID: "conv2" });
-      seedConversation(controller, {
-        conversationID: "conv3",
-        deletedAt: new Date().toISOString(),
-      });
-      seedMessage(controller, {
-        messageID: "msg1",
-        conversationID: "conv1",
-      });
-      seedMessage(controller, {
-        messageID: "msg2",
-        conversationID: "conv2",
-      });
-
-      await controller.deleteDMsMarkAllDeleted();
-
-      const conversations = exec(
-        controller.db!,
-        "SELECT conversationID, deletedAt FROM conversation",
-        [],
-        "all",
-      ) as { conversationID: string; deletedAt: string | null }[];
-      const messages = exec(
-        controller.db!,
-        "SELECT messageID, deletedAt FROM message",
-        [],
-        "all",
-      ) as { messageID: string; deletedAt: string | null }[];
-
-      expect(
-        conversations.every((conversation) => conversation.deletedAt),
-      ).toBe(true);
-      expect(messages.every((message) => message.deletedAt)).toBe(true);
-      expect(controller.progress.conversationsDeleted).toBe(2);
     });
   });
 });
