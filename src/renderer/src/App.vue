@@ -4,8 +4,9 @@ import { ref, provide, onMounted, onUnmounted, getCurrentInstance } from "vue";
 import { useI18n } from "vue-i18n";
 import semver from "semver";
 
-import { DeviceInfo, PlausibleEvents } from "./types";
-import { getDeviceInfo, openURL } from "./util";
+import { DeviceInfo, PlausibleEvents, UpdateStatus } from "./types";
+import type { CredentialProtection } from "../../shared_types";
+import { getDeviceInfo } from "./util";
 import CydAPIClient, {
   APIErrorResponse,
   GetVersionAPIResponse,
@@ -17,6 +18,8 @@ import SignInModal from "./modals/SignInModal.vue";
 import AutomationErrorReportModal from "./modals/AutomationErrorReportModal.vue";
 
 import TabsView from "./views/TabsView.vue";
+import UpdatesBar from "./views/shared_components/UpdatesBar.vue";
+import CredentialStoreBar from "./views/shared_components/CredentialStoreBar.vue";
 
 // Get the global emitter
 const vueInstance = getCurrentInstance();
@@ -109,15 +112,6 @@ emitter?.on("signed-out", () => {
 });
 
 // Check for updates
-enum UpdateStatus {
-  Unknown,
-  Error,
-  Checking,
-  Available,
-  NotAvailable,
-  Downloaded,
-}
-
 const updatesAvailable = ref(false);
 const updateStatus = ref(UpdateStatus.Unknown);
 let checkForUpdatesInterval: ReturnType<typeof setTimeout> | null = null;
@@ -184,6 +178,11 @@ const cydAutoUpdaterUpdateDownloadedEventName =
 
 const platform = ref("");
 
+// How the operating system protects Cyd's persisted credentials. Cyd
+// discloses a weak or missing backend rather than letting people assume their
+// logins are protected.
+const credentialProtection = ref<CredentialProtection | null>(null);
+
 onMounted(async () => {
   await window.electron.trackEvent(
     PlausibleEvents.APP_OPENED,
@@ -193,6 +192,15 @@ onMounted(async () => {
   apiClient.value.initialize(await window.electron.getAPIURL());
 
   platform.value = await window.electron.getPlatform();
+
+  try {
+    credentialProtection.value =
+      await window.electron.getCredentialProtection();
+  } catch {
+    // A failure to describe the protection is not a reason to block startup,
+    // and the main process has already logged it.
+    credentialProtection.value = null;
+  }
 
   await refreshDeviceInfo();
   isFirstLoad.value = false;
@@ -309,46 +317,17 @@ onUnmounted(() => {
       </div>
     </template>
     <template v-else>
-      <TabsView
-        :updates-available="updatesAvailable"
-        @check-for-updates-clicked="checkForUpdates(true)"
-      />
+      <TabsView @check-for-updates-clicked="checkForUpdates(true)" />
 
-      <div v-if="updatesAvailable" class="updates-bar">
-        <p>
-          <strong>{{ t("app.updates.updateAvailable") }}</strong>
-          {{ t("app.updates.shouldUseLatestVersion") }}
-        </p>
-        <p class="text-muted">
-          <template v-if="platform === 'linux'">
-            {{ t("app.updates.installViaPackageManager") }}
-          </template>
-          <template v-else>
-            <template v-if="updateStatus == UpdateStatus.Checking">
-              {{ t("app.updates.loadingUpdateStatus") }}
-            </template>
-            <template v-else-if="updateStatus == UpdateStatus.Available">
-              {{ t("app.updates.downloadingUpdate") }}
-            </template>
-            <template v-else-if="updateStatus == UpdateStatus.Downloaded">
-              <button class="btn btn-primary" @click="restartToUpdateClicked">
-                {{ t("app.updates.restartToUpdate") }}
-              </button>
-            </template>
-            <template
-              v-else-if="
-                updateStatus == UpdateStatus.Error ||
-                updateStatus == UpdateStatus.NotAvailable
-              "
-            >
-              {{ t("app.updates.errorWithAutomaticUpdate") }}
-              <a href="#" @click="openURL('https://cyd.social/download/')">{{
-                t("app.updates.fromWebsite")
-              }}</a
-              >.
-            </template>
-          </template>
-        </p>
+      <div class="bottom-bars">
+        <UpdatesBar
+          v-if="updatesAvailable"
+          :update-status="updateStatus"
+          :platform="platform"
+          @restart-to-update-clicked="restartToUpdateClicked"
+        />
+
+        <CredentialStoreBar :protection="credentialProtection" />
       </div>
     </template>
 

@@ -49,12 +49,12 @@ function createXAccountFromDefaults(changes: object) {
     deleteTweetsRetweetsThresholdEnabled: false,
     deleteTweetsRetweetsThreshold: 0,
     deleteTweetsKeepPinned: false,
+    deleteTweetsKeepReplies: false,
     deleteRetweets: false,
     deleteRetweetsDaysOldEnabled: false,
     deleteRetweetsDaysOld: 0,
     deleteLikes: false,
     deleteBookmarks: false,
-    deleteDMs: false,
     unfollowEveryone: false,
     followingCount: 0,
     followersCount: 0,
@@ -73,7 +73,6 @@ test("UtilX.xRequiresPremium() returns false when saving", async () => {
     archiveTweetsHTML: true,
     archiveLikes: true,
     archiveBookmarks: true,
-    archiveDMs: true,
   });
   expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
 });
@@ -83,7 +82,6 @@ test("UtilX.xRequiresPremium() returns false when archiving", async () => {
     // Save everything
     archiveTweetsHTML: true,
     archiveBookmarks: true,
-    archiveDMs: true,
   });
   expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
 });
@@ -99,7 +97,6 @@ test("UtilX.xRequiresPremium() returns false for only deleting tweets and retwee
     deleteRetweetsDaysOldEnabled: false,
     deleteLikes: false,
     deleteBookmarks: false,
-    deleteDMs: false,
     unfollowEveryone: false,
   });
   expect(await UtilX.xRequiresPremium(accountID, xAccount)).toBe(false);
@@ -113,7 +110,6 @@ test("UtilX.xRequiresPremium() returns false when choosing any delete options", 
     "deleteRetweetsDaysOldEnabled",
     "deleteLikes",
     "deleteBookmarks",
-    "deleteDMs",
     "unfollowEveryone",
   ];
   for (const option of deleteOptions) {
