@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount, VueWrapper } from "@vue/test-utils";
+import { flushPromises, mount, VueWrapper } from "@vue/test-utils";
 import XWizardReviewPage from "./XWizardReviewPage.vue";
 import { XViewModel, State } from "../../../view_models/XViewModel";
 import type { XAccount } from "../../../../../shared_types";
@@ -155,6 +155,29 @@ describe("XWizardReviewPage", () => {
   });
 
   describe("basic rendering - delete mode", () => {
+    it("shows that replies will be kept only when protection is enabled", async () => {
+      const { getJobsType } = await import("../../../util");
+      vi.mocked(getJobsType).mockReturnValue("delete");
+      const mockModel = createMockModel({
+        xAccount: { deleteTweets: true, deleteTweetsKeepReplies: true },
+      });
+      wrapper = mount(XWizardReviewPage, {
+        props: { model: mockModel as XViewModel },
+        global: { plugins: [i18n] },
+      });
+      await flushPromises();
+      expect(wrapper.text()).toContain(
+        "Your reply tweets will be kept, including replies to your own tweets.",
+      );
+
+      await wrapper.setProps({
+        model: createMockModel({
+          xAccount: { deleteTweets: true, deleteTweetsKeepReplies: false },
+        }) as XViewModel,
+      });
+      expect(wrapper.text()).not.toContain("Your reply tweets will be kept");
+    });
+
     it("should show Start Deleting button for delete mode", async () => {
       const { getJobsType } = await import("../../../util");
       vi.mocked(getJobsType).mockReturnValue("delete");
@@ -235,6 +258,40 @@ describe("XWizardReviewPage", () => {
       const warning = wrapper.find(".alert-warning");
       expect(warning.exists()).toBe(true);
       expect(warning.text()).toContain("might suspend your account");
+    });
+
+    it("should put spaces between the counts and the text around them", async () => {
+      const { getJobsType } = await import("../../../util");
+      vi.mocked(getJobsType).mockReturnValue("delete");
+
+      const mockModel = createMockModel({
+        xAccount: {
+          deleteTweets: true,
+          deleteTweetsDaysOldEnabled: true,
+          deleteTweetsDaysOld: 2,
+          deleteRetweets: true,
+          deleteRetweetsDaysOldEnabled: true,
+          deleteRetweetsDaysOld: 30,
+        },
+      });
+
+      wrapper = mount(XWizardReviewPage, {
+        props: {
+          model: mockModel as XViewModel,
+        },
+        global: {
+          plugins: [i18n],
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const text = wrapper.text();
+      expect(text).toContain("10 tweets that are older than 2 days");
+      expect(text).toContain("5 retweets that are older than 30 days");
+      expect(text).toContain(
+        "of these tweets. If you care, archive your tweets",
+      );
     });
   });
 

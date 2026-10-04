@@ -27,6 +27,13 @@ export async function getDeleteTweetsWhereClause(
     daysOldTimestamp,
   ];
 
+  if (controller.account.deleteTweetsKeepReplies) {
+    // Both live indexing and X archive imports record the reply's parent ID.
+    // Require a known non-reply and no parent, preserving unknown records too.
+    whereClause +=
+      " AND t.isReply = 0 AND (t.replyTweetID IS NULL OR t.replyTweetID = '')";
+  }
+
   if (controller.account.deleteTweetsLikesThresholdEnabled) {
     whereClause += " AND t.likeCount <= ?";
     params.push(controller.account.deleteTweetsLikesThreshold);

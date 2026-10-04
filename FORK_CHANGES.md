@@ -2,17 +2,17 @@
 
 This repository, [Gevroska/cyd](https://github.com/Gevroska/cyd), is a fork of [lockdown-systems/cyd](https://github.com/lockdown-systems/cyd).
 
-This document summarizes the intentional changes introduced in this fork compared with the upstream project. It focuses on fork-specific behavior rather than every line-level difference caused by upstream development that has not yet been merged here.
+This document summarizes the intentional changes introduced in this fork compared with the upstream project.
 
 ## Comparison snapshot
 
-The comparison used to prepare this document was made between:
+The October 4, 2026 update synchronizes this fork with:
 
 - Upstream: `lockdown-systems/cyd:main` at `9cb2aae3de934c06414d6e62cf9161611ec53fe0`
-- This fork: `Gevroska/cyd:main` at `c6cfcfb18bd5f2cacc823d6af2ebe23fdfa92255`
-- Merge base: `daa7bf0fae893e73afb26041fb832dd35dfdd96b`
+- Previous fork head: `58c137d4bec70265ca1331fbaa4709fb2c54f948`
+- Application version after synchronization: **1.2.4**
 
-At that snapshot, the branches had diverged: this fork contained 23 commits not present upstream, while upstream contained 121 commits not present in this fork. Because of that, the sections below describe the changes intentionally added by this fork, not unrelated newer upstream work that is simply absent here.
+All 121 previously missing upstream commits are incorporated with their history. The fork's existing features below are retained, and this update adds reply-tweet protection and removes the packaged development startup dialog. Upstream's retirement of X direct-message management is retained: X's changed messaging platform no longer supports the previous workflow. Existing local archives are not deleted by the update.
 
 ## 1. Client-side premium gating is disabled
 
@@ -27,7 +27,7 @@ Notable changes include:
 - Premium badges were removed from the affected X deletion and Bluesky migration UI.
 - Features that were previously treated as premium-only by the desktop client can therefore be started without the local premium gate.
 
-This affects, among other things, advanced X deletion options, deleting likes/bookmarks/DMs, unfollowing, and Bluesky migration where those workflows were previously guarded by the application's premium checks.
+This affects, among other things, advanced X deletion options, deleting likes/bookmarks, unfollowing, and Bluesky migration where those workflows were previously guarded by the application's premium checks.
 
 These changes concern the client-side application logic in this fork; they do not make any claim about external services or server-side behavior.
 
@@ -89,6 +89,28 @@ The review phase is intentionally allowed to run before an existing account has 
 
 Tests cover pinned-post exclusion and the pre-refresh review behavior.
 
+### Optional protection for X reply tweets
+
+The advanced tweet-deletion settings include **Do not delete my reply tweets**.
+The per-account `deleteTweetsKeepReplies` setting defaults to off and is saved
+across app restarts. The review screen confirms when replies will be kept.
+
+When enabled, deletion and its review/unarchived counts select only known
+non-replies with no stored reply parent. This protects replies to other users
+and replies to the account's own tweets, including thread continuations.
+Standalone mentions and quote tweets remain eligible under the other deletion
+filters. Live X indexing and X archive imports both already store the reply
+metadata used by this filter. It can be combined with pinned-tweet, age, and
+engagement protections.
+
+### Startup presentation
+
+Packaged builds no longer show the **Cyd Dev** information dialog on launch
+("It uses the dev server and it might contain bugs"). They open the main Cyd
+window directly. The existing installation and account-storage identities are
+retained so this update keeps using the user's saved accounts and settings.
+The local/open developer-mode notices remain available for those build modes.
+
 ## 4. Updated X navigation for likes and bookmarks
 
 The fork adapts automation to X's newer history URLs.
@@ -113,7 +135,7 @@ https://x.com/i/history
 
 instead of `/i/bookmarks`.
 
-These changes keep the automation aligned with the current X navigation used by the affected workflows.
+These direct routes are retained alongside upstream's expected-redirect handling and its separate original-post, reply, and repost indexing routes.
 
 ## 5. Production API usage and developer UI cleanup
 
@@ -135,7 +157,7 @@ Testing was merged into the build workflow, and the separate `.github/workflows/
 
 For pull requests, the workflow runs an Ubuntu test job that:
 
-- installs Node.js 22,
+- installs Node.js 24 and npm 12.0.2, matching the updated upstream toolchain,
 - installs the Linux/Electron test dependencies,
 - installs npm dependencies,
 - rebuilds `better-sqlite3` for Electron,
@@ -147,7 +169,7 @@ For pushes to `main` and manual runs, the workflow builds on both:
 - `windows-latest`
 - `ubuntu-latest`
 
-The Ubuntu build also runs linting and tests before packaging.
+The Ubuntu build also runs linting and tests before packaging. Both platforms verify the packaged application's reply-protection setting and label, retained pinned/likes features, version, and absence of the development startup message. On Windows, the verification also compares the actual `app.asar` in the full Squirrel package with the application that was just built.
 
 ### CI packages the code that was just built
 
@@ -159,7 +181,7 @@ This avoids a development/CI Squirrel package accidentally incorporating a newer
 
 ## 7. Standalone Windows installer publishing
 
-In addition to the normal GitHub Actions artifact containing the build output, the Windows job publishes a standalone installer.
+In addition to the normal GitHub Actions artifact containing the build output, a publication job publishes a standalone installer after both platform builds and their checks succeed.
 
 The workflow:
 
@@ -175,6 +197,7 @@ The workflow:
    ```
 5. Replaces the existing asset when a newer build is produced.
 6. Moves the `dev-latest` Git tag to the commit that produced the current installer.
+7. Records that commit and the installer's SHA256 checksum in the release notes, and fails the job if uploading or updating the release/tag fails.
 
 As a result, consumers can download `CydDevSetup.exe` directly without first extracting it from the full Windows artifact ZIP.
 
@@ -205,6 +228,6 @@ Representative commits implementing the changes above include:
 
 ## Upstream synchronization note
 
-This fork has also merged upstream changes in the past, including the merge recorded by commit `11a5c23d`. However, upstream has continued to develop since that synchronization point.
+This update merges upstream through `9cb2aae3de934c06414d6e62cf9161611ec53fe0`, including the new Bluesky account/OAuth model, credential persistence, X timeline corrections, direct-message retirement, and dependency/build upgrades. Schema migrations retain the fork's existing pinned-tweet setting and add reply protection with a default of off.
 
 When updating this fork from upstream, the custom behavior documented above should be reviewed carefully during conflict resolution so that upstream changes do not unintentionally remove or alter fork-specific functionality.
