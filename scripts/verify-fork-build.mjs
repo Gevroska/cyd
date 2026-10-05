@@ -36,7 +36,17 @@ assert.ok(
   "Missing local logging setup",
 );
 assert.ok(
-  main.includes("SQL statement failed:"),
+  listPackage(archive)
+    .map((filename) => filename.replaceAll("\\", "/").replace(/^\//, ""))
+    .filter(
+      (filename) =>
+        filename.startsWith(".vite/build/") && filename.endsWith(".js"),
+    )
+    .some((filename) =>
+      extractFile(archive, path.normalize(filename))
+        .toString()
+        .includes("SQL statement failed:"),
+    ),
   "Missing SQL error diagnostics",
 );
 assert.ok(
