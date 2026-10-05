@@ -30,6 +30,11 @@ assert.ok(main.includes("deleteTweetsKeepReplies"), "Missing reply protection");
 assert.ok(main.includes("deleteTweetsKeepPinned"), "Missing pinned protection");
 assert.ok(main.includes("likedAt"), "Missing the fork's likes date metadata");
 assert.ok(!main.includes("It uses the dev server and it might contain bugs"));
+assert.ok(main.includes("main.1.log"), "Missing retained local log history");
+assert.ok(
+  main.includes("Local log session started"),
+  "Missing local logging setup",
+);
 
 const renderer = listPackage(archive)
   .map((filename) => filename.replaceAll("\\", "/").replace(/^\//, ""))
