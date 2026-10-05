@@ -21,6 +21,11 @@ import electronSquirrelStartup from "electron-squirrel-startup";
 
 import * as database from "./database";
 import { platformConnectivityURL } from "./platform_connectivity";
+import {
+  getLocalLogPath,
+  LOCAL_LOG_FILE_SIZE,
+  rotateLocalLog,
+} from "./local_logs";
 import { defineIPCX } from "./account_x";
 import { defineIPCFacebook } from "./account_facebook";
 import {
@@ -84,11 +89,8 @@ if (electronSquirrelStartup) {
 // Check if we're in dev mode
 const cydDevMode = process.env.CYD_DEV === "1";
 
-// Initialize the logger
-log.initialize();
-log.transports.file.level = false; // Disable file logging in prod mode
-log.info("Cyd version:", app.getVersion());
-log.info("User data folder is at:", app.getPath("userData"));
+// Enable local diagnostics only in the actual application instance.
+log.transports.file.level = false;
 
 // The main window
 let win: BrowserWindow | null = null;
@@ -690,6 +692,32 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 } else {
+  if (!electronSquirrelStartup) {
+    try {
+      const currentLog = getLocalLogPath(
+        path.join(app.getPath("userData"), "logs"),
+      );
+      log.transports.file.resolvePathFn = () => currentLog;
+      log.transports.file.maxSize = LOCAL_LOG_FILE_SIZE;
+      log.transports.file.archiveLogFn = (file) => {
+        try {
+          rotateLocalLog(file.toString());
+        } catch (error) {
+          // A disk or permissions error must not stop the user's task.
+          log.transports.file.level = false;
+          console.warn("Could not rotate local diagnostic logs:", error);
+        }
+      };
+      log.transports.file.sync = true;
+      log.transports.file.level = "debug";
+    } catch (error) {
+      log.warn("Could not initialize local session logs:", error);
+    }
+    log.initialize();
+    log.info("Local log session started", new Date().toISOString());
+    log.info("Cyd version:", app.getVersion());
+    log.info("User data folder is at:", app.getPath("userData"));
+  }
   app.on("second-instance", (event, commandLine, _) => {
     // Someone tried to run a second instance, focus the window
     if (win) {

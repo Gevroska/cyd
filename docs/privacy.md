@@ -6,11 +6,13 @@ This notice applies to the independently maintained [Gevroska/cyd fork](https://
 
 This fork does not send usage events, account identifiers, progress counters, activity records, email addresses, device names, screenshots, or error reports to Cyd's services or Plausible. Cyd account registration, newsletter subscription, token refresh, premium billing links, automatic upstream update checks, and their network transports are removed. There is no telemetry queue or opt-in report submission.
 
-An automation failure keeps only a local error category and account reference so that you can retry or cancel. It does not capture a screenshot, page URL, account username, payload, or diagnostic log for a report. Ordinary installations do not write diagnostic log files.
+An automation failure keeps only a local error category and account reference so that you can retry or cancel. It does not capture a screenshot, page URL, account username, payload, or diagnostic log for a report.
 
 ## Data stored on your computer
 
 The app stores the social accounts you add, session credentials protected by the operating system, settings, local task history and counters, and the archives you ask it to create. These are necessary to perform your actions and display their results. Archives can contain posts, messages, usernames, and media. Protect them as personal files; they are not uploaded to the fork maintainer.
+
+Diagnostic logs are stored locally in the application's `logs` directory. `main.log` is the active file; `main.1.log` through `main.9.log` retain older entries, with `main.1.log` being the newest backup. Each file holds approximately 1 MiB, for approximately 10 MiB of history in total (a write can exceed the threshold before rotation). Restarting the application, including after a crash, continues this history without clearing it. The oldest backup is replaced only when a size-based rotation is needed. Logs can contain local paths, platform URLs, account references, and operational details. They are never uploaded automatically. On Windows development builds, the directory is `%APPDATA%\Cyd Dev\logs`.
 
 Old upstream Cyd service credentials may remain in an existing settings database, but this fork neither reads nor refreshes them. Existing local archives are preserved.
 
