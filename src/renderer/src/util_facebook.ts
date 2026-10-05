@@ -1,37 +1,12 @@
 import CydAPIClient from "../../cyd-api-client";
 import type { DeviceInfo } from "./types";
-import { FacebookProgressInfo } from "../../shared_types";
 
+// Kept for upstream caller compatibility. No statistics are read or sent.
 export async function facebookPostProgress(
-  apiClient: CydAPIClient,
-  deviceInfo: DeviceInfo | null,
-  accountID: number,
-) {
-  const progressInfo: FacebookProgressInfo =
-    await window.electron.Facebook.getProgressInfo(accountID);
-  const postFacebookProgressResp = await apiClient.postFacebookProgress(
-    {
-      account_uuid: progressInfo.accountUUID,
-      total_wall_posts_deleted: progressInfo.totalWallPostsDeleted,
-      total_wall_posts_untagged: progressInfo.totalWallPostsUntagged,
-      total_wall_posts_hidden: progressInfo.totalWallPostsHidden,
-    },
-    deviceInfo?.valid ? true : false,
-  );
-
-  if (
-    postFacebookProgressResp !== true &&
-    postFacebookProgressResp !== false &&
-    postFacebookProgressResp.error
-  ) {
-    // Silently log the error and continue
-    console.error(
-      "facebookPostProgress",
-      "failed to post progress to the API",
-      postFacebookProgressResp.message,
-    );
-  }
-}
+  _apiClient: CydAPIClient,
+  _deviceInfo: DeviceInfo | null,
+  _accountID: number,
+) {}
 
 export async function facebookGetLastDelete(
   accountID: number,

@@ -241,84 +241,40 @@ describe("BaseViewModel", () => {
     });
   });
 
-  describe("error reporting", () => {
-    /**
-     * A platform that can name the account an error report is about. The core
-     * knows nothing about any platform's account shape, so each platform
-     * derives its own label.
-     */
-    class LabeledViewModel extends BaseViewModel {
-      protected get errorReportAccountLabel(): string {
-        return "labeled-account";
-      }
-    }
-
-    it("reports the account label the platform derives", async () => {
-      const vm = new LabeledViewModel(
-        createMockAccount({ type: "X" }),
-        createMockEmitter(),
-      );
-
+  describe("local error handling", () => {
+    it("keeps retry state without collecting account labels, payloads, or diagnostics", async () => {
+      const vm = createMockBaseViewModel();
+      vm.log("beforeFailure", "private content");
       await vm.error(
         AutomationErrorType.x_unknownError,
-        { note: "boom" },
-        null,
+        { token: "secret" },
+        { username: "private" },
         true,
       );
-
-      const [, , , , username] = vi.mocked(
-        window.electron.database.createErrorReport,
-      ).mock.calls[0];
-      expect(username).toBe("labeled-account");
-    });
-
-    it("reports no account label when the platform derives none", async () => {
-      const vm = new TestViewModel(
-        createMockAccount({ type: "X" }),
-        createMockEmitter(),
-      );
-
-      await vm.error(AutomationErrorType.x_unknownError, null, null, true);
-
-      const [, , , , username] = vi.mocked(
-        window.electron.database.createErrorReport,
-      ).mock.calls[0];
-      expect(username).toBe("");
-    });
-
-    it("produces a complete report for a platform with no page to look at", async () => {
-      const vm = new TestViewModel(
-        createMockAccount({ type: "X" }),
-        createMockEmitter(),
-      );
-      vm.log("beforeTheFailure", "a log line");
-
-      await vm.error(
+      expect(window.electron.database.createErrorReport).toHaveBeenCalledWith(
+        1,
+        "X",
         AutomationErrorType.x_unknownError,
-        { note: "boom" },
-        null,
-        true,
+        "null",
+        "",
+        "",
+        "{}",
       );
-
-      const [
-        accountID,
-        accountType,
-        errorType,
-        errorReportData,
-        ,
-        screenshot,
-        sensitiveContext,
-      ] = vi.mocked(window.electron.database.createErrorReport).mock.calls[0];
-      expect(accountID).toBe(1);
-      expect(accountType).toBe("X");
-      expect(errorType).toBe(AutomationErrorType.x_unknownError);
-      expect(JSON.parse(errorReportData as string)).toEqual({ note: "boom" });
-      expect(screenshot).toBe("");
-
-      const parsedContext = JSON.parse(sensitiveContext as string);
-      expect(parsedContext.logs).toHaveLength(1);
-      expect(parsedContext.logs[0].func).toBe("beforeTheFailure");
-      expect(parsedContext).not.toHaveProperty("currentURL");
+      expect(window.electron.trackEvent).not.toHaveBeenCalled();
+    });
+    it("still pauses and opens the local retry dialog for an interrupted task", async () => {
+      const vm = createMockBaseViewModel();
+      const show = vi.spyOn(vm, "showErrorModal").mockResolvedValue();
+      await vm.error(AutomationErrorType.x_unknownError);
+      expect(show).toHaveBeenCalledOnce();
+    });
+    it("checks connectivity on the current platform", async () => {
+      const vm = createMockBaseViewModel();
+      expect(await vm.checkInternetConnectivity()).toBe(true);
+      expect(window.electron.checkInternetConnectivity).toHaveBeenCalledWith(
+        "X",
+      );
+      expect(window.electron.getAPIURL).not.toHaveBeenCalled();
     });
   });
 });

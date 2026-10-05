@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as DeleteJobs from "./jobs_delete";
 import type { XViewModel } from "./view_model";
-import { PlausibleEvents } from "../../types";
 import { RunJobsState } from "./types";
 import type { XDeleteTweetsStartResponse } from "../../../../shared_types";
 import {
@@ -84,10 +83,7 @@ describe("jobs_delete.ts", () => {
 
       await DeleteJobs.runJobDeleteTweets(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_DELETE_TWEETS,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set config to reload user stats", async () => {
@@ -300,10 +296,7 @@ describe("jobs_delete.ts", () => {
 
       await DeleteJobs.runJobDeleteRetweets(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_DELETE_RETWEETS,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set config to reload user stats", async () => {
@@ -464,10 +457,7 @@ describe("jobs_delete.ts", () => {
 
       await DeleteJobs.runJobDeleteLikes(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_DELETE_LIKES,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set config to reload user stats", async () => {
@@ -609,10 +599,7 @@ describe("jobs_delete.ts", () => {
 
       await DeleteJobs.runJobDeleteBookmarks(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_DELETE_BOOKMARKS,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set config to reload user stats", async () => {
@@ -771,10 +758,7 @@ describe("jobs_delete.ts", () => {
 
       await DeleteJobs.runJobUnfollowEveryone(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_UNFOLLOW_EVERYONE,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set correct UI state", async () => {

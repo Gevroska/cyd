@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as MigrateBluesky from "./jobs_migrate_to_bluesky";
 import { RunJobsState } from "./types";
-import { PlausibleEvents } from "../../types";
 import type { XTweetItem } from "../../../../shared_types";
 import { emptyXMigrateTweetCounts } from "../../../../shared_types";
 import { mockElectronAPI, resetElectronAPIMocks } from "../../test_util";
@@ -35,10 +34,7 @@ describe("jobs_migrate_to_bluesky.ts", () => {
     it("should track analytics event on start", async () => {
       await MigrateBluesky.runJobMigrateBluesky(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_MIGRATE_BLUESKY,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set correct UI state", async () => {
@@ -189,10 +185,7 @@ describe("jobs_migrate_to_bluesky.ts", () => {
     it("should track analytics event on start", async () => {
       await MigrateBluesky.runJobMigrateBlueskyDelete(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_MIGRATE_BLUESKY_DELETE,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set correct UI state", async () => {

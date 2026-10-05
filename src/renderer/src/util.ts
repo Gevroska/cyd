@@ -1,10 +1,8 @@
-import CydAPIClient from "../../cyd-api-client";
 import type { DeviceInfo } from "./types";
 
-// This function checks to see if there's a userEmail and deviceToken, and if so if the
-// deviceToken is valid. The email could still be there, even if the token is invalid.
+// Never load or refresh credentials from an older upstream Cyd installation.
 export async function getDeviceInfo(): Promise<DeviceInfo> {
-  const deviceInfo: DeviceInfo = {
+  return {
     userEmail: "",
     deviceDescription: "",
     deviceToken: "",
@@ -12,46 +10,6 @@ export async function getDeviceInfo(): Promise<DeviceInfo> {
     apiToken: "",
     valid: false,
   };
-
-  const apiClient = new CydAPIClient();
-  apiClient.initialize(await window.electron.getAPIURL());
-
-  const deviceDescription =
-    await window.electron.database.getConfig("deviceDescription");
-  if (!deviceDescription) {
-    // This should never happen
-    deviceInfo["deviceDescription"] = "Unknown device";
-  } else {
-    deviceInfo["deviceDescription"] = deviceDescription;
-  }
-
-  const userEmail = await window.electron.database.getConfig("userEmail");
-  if (userEmail) {
-    deviceInfo["userEmail"] = userEmail;
-
-    const deviceToken = await window.electron.database.getConfig("deviceToken");
-    if (deviceToken && deviceToken.length > 0) {
-      deviceInfo["deviceToken"] = deviceToken;
-
-      const deviceUUID = await window.electron.database.getConfig("deviceUUID");
-      if (deviceUUID) {
-        deviceInfo["deviceUUID"] = deviceUUID;
-      }
-
-      apiClient.setUserEmail(userEmail);
-      await apiClient.setDeviceToken(deviceToken);
-      const pingResp = await apiClient.ping();
-      if (pingResp) {
-        deviceInfo["valid"] = true;
-        console.log("Device is valid");
-      } else {
-        console.log("Device is invalid");
-      }
-    }
-  } else {
-    console.log("No userEmail found in config");
-  }
-  return deviceInfo;
 }
 
 export function getAccountIcon(accountType: string): string {

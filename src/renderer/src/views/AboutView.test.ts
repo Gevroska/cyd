@@ -181,7 +181,7 @@ describe("AboutView", () => {
       await wrapper.vm.$nextTick();
 
       expect(window.electron.openURL).toHaveBeenCalledWith(
-        "https://github.com/lockdown-systems/cyd",
+        "https://github.com/Gevroska/cyd",
       );
     });
 
@@ -205,9 +205,7 @@ describe("AboutView", () => {
       (privacyButton!.element as HTMLElement).click();
       await wrapper.vm.$nextTick();
 
-      expect(window.electron.openURL).toHaveBeenCalledWith(
-        "https://cyd.social/privacy/",
-      );
+      expect(window.electron.openPrivacyPolicy).toHaveBeenCalled();
     });
 
     it("should open terms of use URL when Terms of Use clicked", async () => {

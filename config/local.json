@@ -1,6 +1,3 @@
 {
-  "mode": "local",
-  "apiURL": "http://localhost:5000",
-  "dashURL": "http://localhost:8080",
-  "plausibleDomain": "localhost"
+  "mode": "local"
 }

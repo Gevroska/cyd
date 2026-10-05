@@ -12,7 +12,6 @@ import {
   shell,
   webContents,
   nativeImage,
-  autoUpdater,
   powerSaveBlocker,
   powerMonitor,
   FileFilter,
@@ -21,6 +20,7 @@ import mime from "mime-types";
 import electronSquirrelStartup from "electron-squirrel-startup";
 
 import * as database from "./database";
+import { platformConnectivityURL } from "./platform_connectivity";
 import { defineIPCX } from "./account_x";
 import { defineIPCFacebook } from "./account_facebook";
 import {
@@ -38,12 +38,10 @@ import {
   sweepOrphanedBlueskyOAuth,
 } from "./bluesky_oauth";
 import {
-  getUpdatesBaseURL,
   getAccountDataPath,
   getResourcesPath,
   getSettingsPath,
   getDataPath,
-  trackEvent,
   packageExceptionForReport,
   isFeatureEnabled,
 } from "./util";
@@ -53,9 +51,6 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 interface Config {
   mode: string;
-  apiURL: string;
-  dashURL: string;
-  plausibleDomain: string;
 }
 
 let isAppReady = false;
@@ -91,7 +86,7 @@ const cydDevMode = process.env.CYD_DEV === "1";
 
 // Initialize the logger
 log.initialize();
-log.transports.file.level = config.mode == "prod" ? false : "debug"; // Disable file logging in prod mode
+log.transports.file.level = false; // Disable file logging in prod mode
 log.info("Cyd version:", app.getVersion());
 log.info("User data folder is at:", app.getPath("userData"));
 
@@ -284,85 +279,16 @@ async function initializeApp() {
     log.error("Failed to sweep orphaned Bluesky OAuth material:", error);
   });
 
-  // If a device description has not been created yet, make one now
-  const deviceDescription = database.getConfig("deviceDescription");
-  if (!deviceDescription) {
-    let description = "";
-    switch (os.platform()) {
-      case "darwin":
-        description += "macOS: ";
-        break;
-      case "win32":
-        description += "Windows: ";
-        break;
-      case "linux":
-        description += "Linux: ";
-        break;
-      default:
-        description += "Unknown OS: ";
-    }
-    description += os.hostname();
-    database.setConfig("deviceDescription", description);
-  }
-
-  // Set up auto-updates for Windows and macOS
-  if (os.platform() == "win32" || os.platform() == "darwin") {
-    const cydAutoUpdaterErrorEventName = "cydAutoUpdaterError";
-    const cydAutoUpdaterCheckingForUpdatesEventName =
-      "cydAutoUpdaterCheckingForUpdates";
-    const cydAutoUpdaterUpdateAvailableEventName =
-      "cydAutoUpdaterUpdateAvailable";
-    const cydAutoUpdaterUpdateNotAvailableEventName =
-      "cydAutoUpdaterUpdateNotAvailable";
-    const cydAutoUpdaterUpdateDownloadedEventName =
-      "cydAutoUpdaterUpdateDownloaded";
-
-    let feedURL = getUpdatesBaseURL(config.mode);
-    let serverType: "default" | "json" = "default";
-    if (process.platform === "darwin") {
-      feedURL += "/RELEASES.json";
-      serverType = "json";
-    }
-
-    autoUpdater.setFeedURL({
-      url: feedURL,
-      serverType,
+  // Disclose local storage and third-party connections before first use.
+  if (database.getConfig("forkPrivacyNoticeShown") !== "true") {
+    dialog.showMessageBoxSync({
+      title: "Cyd privacy",
+      message: "This Cyd fork sends no usage statistics or error reports.",
+      detail:
+        "Your archives, social account sessions, and task history stay on this computer. Connecting a social account or running a task contacts that platform. Bluesky OAuth also uses upstream Cyd's public client metadata and redirect service. The full privacy notice is bundled with the application and available from About. Uninstalling leaves your local archives and settings in place.",
+      type: "info",
     });
-
-    autoUpdater.on("error", (err) => {
-      log.error("updater error", err);
-      if (win) {
-        win.webContents.send(cydAutoUpdaterErrorEventName);
-      }
-    });
-
-    autoUpdater.on("checking-for-update", () => {
-      log.info("checking-for-update");
-      if (win) {
-        win.webContents.send(cydAutoUpdaterCheckingForUpdatesEventName);
-      }
-    });
-
-    autoUpdater.on("update-available", () => {
-      log.info("update-available; downloading...");
-      if (win) {
-        win.webContents.send(cydAutoUpdaterUpdateAvailableEventName);
-      }
-    });
-
-    autoUpdater.on("update-not-available", () => {
-      log.info("update-not-available");
-      if (win) {
-        win.webContents.send(cydAutoUpdaterUpdateNotAvailableEventName);
-      }
-    });
-
-    autoUpdater.on("update-downloaded", () => {
-      log.info("update-downloaded");
-      if (win) {
-        win.webContents.send(cydAutoUpdaterUpdateDownloadedEventName);
-      }
-    });
+    database.setConfig("forkPrivacyNoticeShown", "true");
   }
 
   // Make sure the data path is created and the config setting is saved
@@ -423,25 +349,29 @@ async function createWindow() {
   if (!global.ipcHandlersRegistered) {
     // Main IPC events
 
-    ipcMain.handle("checkForUpdates", async () => {
-      try {
-        if (os.platform() == "darwin" || os.platform() == "win32") {
-          autoUpdater.checkForUpdates();
+    const openForkDownloads = () =>
+      shell.openExternal("https://github.com/Gevroska/cyd/releases");
+    ipcMain.handle("checkForUpdates", openForkDownloads);
+    ipcMain.handle("quitAndInstallUpdate", openForkDownloads);
+    ipcMain.handle("openPrivacyPolicy", () =>
+      shell.openPath(path.join(getResourcesPath(), "privacy.md")),
+    );
+    ipcMain.handle(
+      "checkInternetConnectivity",
+      async (_, accountType: string) => {
+        const url = platformConnectivityURL(accountType);
+        if (!url) return false;
+        try {
+          await fetch(url, {
+            method: "HEAD",
+            signal: AbortSignal.timeout(2000),
+          });
+          return true;
+        } catch {
+          return false;
         }
-      } catch (error) {
-        throw new Error(packageExceptionForReport(error as Error));
-      }
-    });
-
-    ipcMain.handle("quitAndInstallUpdate", async () => {
-      try {
-        if (os.platform() == "darwin" || os.platform() == "win32") {
-          autoUpdater.quitAndInstall();
-        }
-      } catch (error) {
-        throw new Error(packageExceptionForReport(error as Error));
-      }
-    });
+      },
+    );
 
     ipcMain.handle("getVersion", async () => {
       try {
@@ -469,7 +399,7 @@ async function createWindow() {
 
     ipcMain.handle("getAPIURL", async () => {
       try {
-        return config.apiURL;
+        return "";
       } catch (error) {
         throw new Error(packageExceptionForReport(error as Error));
       }
@@ -477,7 +407,7 @@ async function createWindow() {
 
     ipcMain.handle("getDashURL", async () => {
       try {
-        return config.dashURL;
+        return "";
       } catch (error) {
         throw new Error(packageExceptionForReport(error as Error));
       }
@@ -487,17 +417,6 @@ async function createWindow() {
       "isFeatureEnabled",
       async (_, feature: string): Promise<boolean> => {
         return isFeatureEnabled(feature);
-      },
-    );
-
-    ipcMain.handle(
-      "trackEvent",
-      async (_, eventName: string, userAgent: string) => {
-        try {
-          trackEvent(eventName, userAgent, config.plausibleDomain);
-        } catch (error) {
-          throw new Error(packageExceptionForReport(error as Error));
-        }
       },
     );
 

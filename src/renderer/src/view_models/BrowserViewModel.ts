@@ -1,5 +1,5 @@
 import { WebviewTag } from "electron";
-import { BaseViewModel, type ErrorReportPageContext } from "./BaseViewModel";
+import { BaseViewModel } from "./BaseViewModel";
 import {
   InternetDownError,
   TimeoutError,
@@ -31,24 +31,6 @@ export class BrowserViewModel extends BaseViewModel {
   cleanup() {
     // Remove the event listener
     this.getWebview()?.removeEventListener("dom-ready", this.domReadyHandler);
-  }
-
-  /**
-   * The page the failure happened on: its URL, plus a screenshot when the
-   * person could see the browser at the time.
-   */
-  protected async errorReportPageContext(): Promise<ErrorReportPageContext> {
-    const webview = this.getWebview();
-    if (!webview) {
-      return {};
-    }
-
-    return {
-      currentURL: webview.getURL(),
-      screenshotDataURL: this.showBrowser
-        ? (await webview.capturePage()).toDataURL()
-        : "",
-    };
   }
 
   async init(webview: WebviewTag) {

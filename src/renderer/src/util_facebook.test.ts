@@ -51,135 +51,15 @@ describe("util_facebook", () => {
   });
 
   describe("facebookPostProgress", () => {
-    test("calls postFacebookProgress with correct parameters when signed in", async () => {
-      const mockPostFacebookProgress = vi.fn().mockResolvedValue(true);
-      const mockApiClient = {
-        postFacebookProgress: mockPostFacebookProgress,
-      } as unknown as CydAPIClient;
-
-      const mockProgressInfo = {
-        accountUUID: "test-uuid-123",
-        totalWallPostsDeleted: 42,
-        totalWallPostsUntagged: 0,
-        totalWallPostsHidden: 0,
-      };
-      mockFacebookGetProgressInfo.mockResolvedValue(mockProgressInfo);
-
-      const deviceInfo = {
-        userEmail: "test@example.com",
-        deviceDescription: "Test Device",
-        deviceToken: "test-token",
-        deviceUUID: "test-device-uuid",
-        apiToken: "test-api-token",
-        valid: true,
-      };
-
-      await UtilFacebook.facebookPostProgress(mockApiClient, deviceInfo, 1);
-
-      expect(mockFacebookGetProgressInfo).toHaveBeenCalledWith(1);
-      expect(mockPostFacebookProgress).toHaveBeenCalledWith(
-        {
-          account_uuid: "test-uuid-123",
-          total_wall_posts_deleted: 42,
-          total_wall_posts_untagged: 0,
-          total_wall_posts_hidden: 0,
-        },
-        true,
+    test("does not read or transmit account statistics, including for legacy callers", async () => {
+      const postFacebookProgress = vi.fn();
+      await UtilFacebook.facebookPostProgress(
+        { postFacebookProgress } as unknown as CydAPIClient,
+        null,
+        1,
       );
-    });
-
-    test("calls postFacebookProgress with false when device is not valid", async () => {
-      const mockPostFacebookProgress = vi.fn().mockResolvedValue(true);
-      const mockApiClient = {
-        postFacebookProgress: mockPostFacebookProgress,
-      } as unknown as CydAPIClient;
-
-      const mockProgressInfo = {
-        accountUUID: "test-uuid-456",
-        totalWallPostsDeleted: 100,
-        totalWallPostsUntagged: 0,
-        totalWallPostsHidden: 0,
-      };
-      mockFacebookGetProgressInfo.mockResolvedValue(mockProgressInfo);
-
-      const deviceInfo = {
-        userEmail: "test@example.com",
-        deviceDescription: "Test Device",
-        deviceToken: "test-token",
-        deviceUUID: "test-device-uuid",
-        apiToken: "test-api-token",
-        valid: false,
-      };
-
-      await UtilFacebook.facebookPostProgress(mockApiClient, deviceInfo, 1);
-
-      expect(mockPostFacebookProgress).toHaveBeenCalledWith(
-        {
-          account_uuid: "test-uuid-456",
-          total_wall_posts_deleted: 100,
-          total_wall_posts_untagged: 0,
-          total_wall_posts_hidden: 0,
-        },
-        false,
-      );
-    });
-
-    test("calls postFacebookProgress with false when deviceInfo is null", async () => {
-      const mockPostFacebookProgress = vi.fn().mockResolvedValue(true);
-      const mockApiClient = {
-        postFacebookProgress: mockPostFacebookProgress,
-      } as unknown as CydAPIClient;
-
-      const mockProgressInfo = {
-        accountUUID: "test-uuid-789",
-        totalWallPostsDeleted: 0,
-        totalWallPostsUntagged: 0,
-        totalWallPostsHidden: 0,
-      };
-      mockFacebookGetProgressInfo.mockResolvedValue(mockProgressInfo);
-
-      await UtilFacebook.facebookPostProgress(mockApiClient, null, 1);
-
-      expect(mockPostFacebookProgress).toHaveBeenCalledWith(
-        {
-          account_uuid: "test-uuid-789",
-          total_wall_posts_deleted: 0,
-          total_wall_posts_untagged: 0,
-          total_wall_posts_hidden: 0,
-        },
-        false,
-      );
-    });
-
-    test("logs error when API returns error response", async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const mockPostFacebookProgress = vi.fn().mockResolvedValue({
-        error: true,
-        message: "Server error",
-      });
-      const mockApiClient = {
-        postFacebookProgress: mockPostFacebookProgress,
-      } as unknown as CydAPIClient;
-
-      const mockProgressInfo = {
-        accountUUID: "test-uuid",
-        totalWallPostsDeleted: 10,
-        totalWallPostsUntagged: 0,
-        totalWallPostsHidden: 0,
-      };
-      mockFacebookGetProgressInfo.mockResolvedValue(mockProgressInfo);
-
-      await UtilFacebook.facebookPostProgress(mockApiClient, null, 1);
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "facebookPostProgress",
-        "failed to post progress to the API",
-        "Server error",
-      );
-
-      consoleErrorSpy.mockRestore();
+      expect(mockFacebookGetProgressInfo).not.toHaveBeenCalled();
+      expect(postFacebookProgress).not.toHaveBeenCalled();
     });
   });
 });

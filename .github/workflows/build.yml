@@ -67,7 +67,6 @@ jobs:
           CI: true
 
   build:
-    if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -109,17 +108,34 @@ jobs:
           npm_config_runtime=electron npm_config_target=$ELECTRON_VERSION npm_config_disturl=https://electronjs.org/headers npm_config_build_from_source=true npm rebuild better-sqlite3
 
       - name: Run lint
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
         run: npm run lint
 
       - name: Run tests
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
         run: xvfb-run -a npm run test:ci
         env:
           CI: true
 
       - name: Build app
         run: npm run make-dev
+
+      - name: Set and verify Windows product metadata
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          $installers = @(Get-ChildItem -LiteralPath (Join-Path $PWD "out/make/squirrel.windows") -Recurse -File |
+            Where-Object { $_.Name -match "Setup\.exe$" })
+          if ($installers.Count -ne 1) { throw "Expected one Windows installer." }
+          & (Join-Path $PWD "node_modules/electron-winstaller/vendor/rcedit.exe") $installers[0].FullName `
+            --set-version-string ProductName Cyd --set-version-string FileDescription Cyd `
+            --set-product-version $version --set-file-version $version
+          if ($LASTEXITCODE -ne 0) { throw "Installer metadata update failed." }
+          ./scripts/verify-windows-metadata.ps1 -Path $installers[0].FullName -ExpectedVersion $version
+          $apps = @(Get-ChildItem -Path "out/*-win32-*/Cyd*.exe" -File)
+          if ($apps.Count -ne 1) { throw "Expected one packaged application executable." }
+          ./scripts/verify-windows-metadata.ps1 -Path $apps[0].FullName -ExpectedVersion $version
 
       - name: Verify packaged fork features
         run: node scripts/verify-fork-build.mjs
@@ -164,6 +180,11 @@ jobs:
       SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
 
     steps:
+      - name: Checkout release metadata
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
       - name: Download verified Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -190,6 +211,8 @@ jobs:
 
           $publishPath = Join-Path $env:RUNNER_TEMP "CydDevSetup.exe"
           Copy-Item -Path $installer.FullName -Destination $publishPath -Force
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          ./scripts/verify-windows-metadata.ps1 -Path $publishPath -ExpectedVersion $version
           "publish-path=$publishPath" >> $env:GITHUB_OUTPUT
 
       - name: Select Windows publication mode
@@ -286,6 +309,8 @@ jobs:
           $publishPath = "${{ steps.prepare-installer.outputs.publish-path }}"
           Copy-Item -LiteralPath $signed[0].FullName -Destination $publishPath -Force
 
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          ./scripts/verify-windows-metadata.ps1 -Path $publishPath -ExpectedVersion $version
           $signature = Get-AuthenticodeSignature -LiteralPath $publishPath
           Write-Host "Authenticode status: $($signature.Status)"
           if ($signature.SignerCertificate) {
@@ -319,7 +344,13 @@ jobs:
             $notes = "Windows build from commit ${{ github.sha }}. UNSIGNED development build. SHA256: $digest"
           }
 
+          $notes += "`n`nCyd is an independently maintained GPL-3.0-only fork of lockdown-systems/cyd. Back up, selectively delete, and migrate social media data. No usage analytics or remote error reports are sent by this fork."
+          $notes += "`n`nPrivacy and platform connections: https://github.com/${{ github.repository }}/blob/${{ github.sha }}/docs/privacy.md"
+          $notes += "`nSource and license: https://github.com/${{ github.repository }}/tree/${{ github.sha }}"
+          $notes += "`nInstall by running CydDevSetup.exe. Uninstall Cyd Dev through Windows Settings > Apps. Local archives and settings are retained; see the privacy notice for data removal."
           $notes += "`n`nCode signing policy: https://github.com/${{ github.repository }}/blob/${{ github.sha }}/docs/code-signing.md"
+
+          $notes += "`nFree code signing provided by https://signpath.io/, certificate by https://signpath.org/ (onboarding pending for unsigned builds)."
 
           if (gh release view dev-latest --repo "${{ github.repository }}" 2>$null) {
             gh release upload dev-latest $publishPath --clobber --repo "${{ github.repository }}"
