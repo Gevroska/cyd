@@ -13,7 +13,7 @@ At the moment, Cyd supports the following platforms:
 
 ## Get started
 
-Download this fork's Windows installer from [its GitHub releases](https://github.com/Gevroska/cyd/releases/tag/dev-latest). Read the [privacy notice](docs/privacy.md) and [code signing policy](docs/code-signing.md). Development installers are unsigned until SignPath accepts and configures this project. The original project's downloads are available at [cyd.social](https://cyd.social/download/).
+Download this fork's Windows installer from [its GitHub releases](https://github.com/Gevroska/cyd/releases/tag/dev-latest). Read the [privacy notice](docs/privacy.md). Development installers are unsigned. The original project's downloads are available at [cyd.social](https://cyd.social/download/).
 
 ## Documentation
 
@@ -29,10 +29,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to build and run Cyd from sourc
 
 This independently maintained fork runs without Cyd accounts, analytics, usage uploads, or remote error reports. Archives and account sessions stay local. See the [privacy notice](docs/privacy.md) for platform connections and the retained Bluesky OAuth metadata/redirect service. The notice is bundled with the application and summarized before first use.
 
-Download the Windows installer from this fork's [releases](https://github.com/Gevroska/cyd/releases/tag/dev-latest). It backs up, selectively deletes, and migrates social media data. Current development installers are unsigned until SignPath onboarding is accepted and configured. Uninstall Cyd Dev through Windows Settings → Apps; local archives and settings are retained. Review the privacy notice before removing those files.
-
-## Code signing policy
-
-Free code signing provided by SignPath.io, certificate by SignPath Foundation.
-
-Windows release signing, project roles, privacy information, and the release procedure are documented in [docs/code-signing.md](./docs/code-signing.md).
+Download the Windows installer from this fork's [releases](https://github.com/Gevroska/cyd/releases/tag/dev-latest). It backs up, selectively deletes, and migrates social media data. Current development installers are unsigned. Uninstall Cyd Dev through Windows Settings → Apps; local archives and settings are retained. Review the privacy notice before removing those files.
