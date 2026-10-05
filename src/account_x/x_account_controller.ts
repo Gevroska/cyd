@@ -9,6 +9,7 @@ import { Record as BskyPostRecord } from "@atproto/api/dist/client/types/app/bsk
 
 import { getAccountDataPath } from "../util";
 import { RequestLog } from "../request_log";
+import { X_API_REQUEST_FILTER } from "./web_request_filter";
 import {
   XAccount,
   XJob,
@@ -98,7 +99,7 @@ export class XAccountController extends BaseAccountController<XProgress> {
       );
     }
 
-    ses.webRequest.onCompleted((details) => {
+    ses.webRequest.onCompleted(X_API_REQUEST_FILTER, (details) => {
       this.requestLog.record({
         method: details.method,
         url: details.url,

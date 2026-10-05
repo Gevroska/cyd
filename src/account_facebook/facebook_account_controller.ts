@@ -44,6 +44,10 @@ export class FacebookAccountController extends BaseAccountController<FacebookPro
 
     // Monitor web request metadata for Facebook-specific functionality
     const ses = session.fromPartition(`persist:account-${this.accountID}`);
+    // X reads session.cookies directly and must not install this observer.
+    ses.webRequest.onSendHeaders((details) => {
+      this.handleCookieTracking(details);
+    });
     ses.webRequest.onCompleted((details) => {
       // Monitor for rate limits
       if (details.statusCode == 429) {

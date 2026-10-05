@@ -17,6 +17,8 @@ Download this fork's Windows installer from [its GitHub releases](https://github
 
 ## Documentation
 
+Local diagnostic files are off by default. To collect logs and native crash dumps for a troubleshooting session, close Cyd and launch its executable with `-debug` (or `--debug`). See the [privacy notice](docs/privacy.md) for locations and 24-hour dump retention.
+
 Learn all about how to use Cyd, what features it has, and how to get involved in the open source project, including how to request features and report bugs, at the [Cyd Documentation](https://docs.cyd.social) website.
 
 ## Contributing

@@ -10,6 +10,8 @@ An automation failure keeps only a local error category and account reference so
 
 ## Data stored on your computer
 
+Diagnostic file logs and native crash dumps are disabled by default. Close Cyd, then launch its executable with `-debug` (or `--debug`) to enable both for that session. A normal launch does not start local crash capture or append to diagnostic files. Existing log history is retained.
+
 The app stores the social accounts you add, session credentials protected by the operating system, settings, local task history and counters, and the archives you ask it to create. These are necessary to perform your actions and display their results. Archives can contain posts, messages, usernames, and media. Protect them as personal files; they are not uploaded to the fork maintainer.
 
 Diagnostic logs are stored locally in the application's `logs` directory. `main.log` is the active file; `main.1.log` through `main.9.log` retain older entries, with `main.1.log` being the newest backup. Each file holds approximately 1 MiB, for approximately 10 MiB of history in total (a write can exceed the threshold before rotation). Restarting the application, including after a crash, continues this history without clearing it. The oldest backup is replaced only when a size-based rotation is needed. Logs can contain local paths, platform URLs, account references, and operational details. They are never uploaded automatically. On Windows development builds, the directory is `%APPDATA%\Cyd Dev\logs`.
@@ -19,6 +21,8 @@ Successful SQL statements and repetitive account refreshes are filtered out of t
 Native crash minidumps are collected locally by Electron's Crashpad handler in the application's `crash-dumps` directory (`%APPDATA%\Cyd Dev\crash-dumps` on Windows development builds). Capture starts before application windows are created and covers the main process and subsequent child processes. Uploads are explicitly disabled and no crash-report server is configured. The system-wide Windows error-reporting settings are not changed. Minidumps are separate from the size-limited text logs and can contain process-memory fragments, including personal data; protect them as personal files and do not attach them to a public issue without reviewing them.
 
 Old upstream Cyd service credentials may remain in an existing settings database, but this fork neither reads nor refreshes them. Existing local archives are preserved.
+
+Crash dumps expire after 24 hours. Cyd removes expired `.dmp` files at startup and once per minute while it is running, including during normal launches without `-debug`. If Cyd is closed at expiry, cleanup takes place on its next launch. Crashpad's settings and database files are preserved; this retention rule applies to dumps in Cyd's application directory, not copies you preserve elsewhere.
 
 ## Connections needed for your actions
 
