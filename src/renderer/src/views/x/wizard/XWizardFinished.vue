@@ -7,7 +7,6 @@ import {
   FailureState,
 } from "../../../view_models/XViewModel";
 import { openURL, getJobsType } from "../../../util";
-import UpsellComponent from "../../shared_components/UpsellComponent.vue";
 import ButtonsComponent from "../../shared_components/ButtonsComponent.vue";
 
 const { t } = useI18n();
@@ -461,8 +460,6 @@ onMounted(async () => {
             {{ t("finished.runAgainMessage") }}
           </p>
         </div>
-
-        <UpsellComponent class="mt-4" />
       </div>
     </div>
     <div class="next-buttons">

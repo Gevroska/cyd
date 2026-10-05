@@ -114,14 +114,6 @@ export class FacebookViewModel extends BrowserViewModel {
       : State.Login;
   }
 
-  /**
-   * Facebook error reports are about a Facebook account, which a username
-   * names.
-   */
-  protected get errorReportAccountLabel(): string {
-    return this.account?.facebookAccount?.username ?? "";
-  }
-
   async init(webview: WebviewTag) {
     if (
       this.account &&

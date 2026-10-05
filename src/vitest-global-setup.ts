@@ -3,6 +3,6 @@
 // open that prevent the Vite server from shutting down gracefully.
 export function teardown() {
   setTimeout(() => {
-    process.exit(0);
+    process.exit(process.exitCode ?? 0);
   }, 3000).unref();
 }

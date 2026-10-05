@@ -1,6 +1,5 @@
 import type { XViewModel } from "./view_model";
 import { XArchiveStartResponse } from "../../../../shared_types";
-import { PlausibleEvents } from "../../types";
 import { AutomationErrorType } from "../../automation_errors";
 import { formatError } from "../../util";
 import { FailureState } from "./types";
@@ -42,7 +41,6 @@ interface XIndexTimelineErrors {
 }
 
 interface XIndexTimelineConfig {
-  event: (typeof PlausibleEvents)[keyof typeof PlausibleEvents];
   instructionsKey: string;
   routes: XTimelineRoute[];
   contentSelector: string;
@@ -161,8 +159,6 @@ async function runIndexTimelineJob(
   jobIndex: number,
   config: XIndexTimelineConfig,
 ): Promise<boolean> {
-  await window.electron.trackEvent(config.event, navigator.userAgent);
-
   vm.showBrowser = true;
   vm.instructions = vm.t(config.instructionsKey);
   vm.showAutomationNotice = true;
@@ -258,7 +254,6 @@ export async function runJobIndexTweets(
 ): Promise<boolean> {
   const username = vm.account.xAccount?.username || "";
   return runIndexTimelineJob(vm, jobIndex, {
-    event: PlausibleEvents.X_JOB_STARTED_INDEX_TWEETS,
     instructionsKey: "viewModels.x.jobs.index.tweets",
     // X split the profile timeline in three on 2026-09-14: the profile route
     // carries original posts only, /with_replies carries replies, and reposts
@@ -290,7 +285,6 @@ export async function runJobIndexLikes(
   jobIndex: number,
 ): Promise<boolean> {
   return runIndexTimelineJob(vm, jobIndex, {
-    event: PlausibleEvents.X_JOB_STARTED_INDEX_LIKES,
     instructionsKey: "viewModels.x.jobs.index.likes",
     // Use the current likes route directly, while allowing X's history redirect.
     routes: [
@@ -322,7 +316,6 @@ export async function runJobIndexBookmarks(
   jobIndex: number,
 ): Promise<boolean> {
   return runIndexTimelineJob(vm, jobIndex, {
-    event: PlausibleEvents.X_JOB_STARTED_INDEX_BOOKMARKS,
     instructionsKey: "viewModels.x.jobs.index.bookmarks",
     // Bookmarks now live on X's history page.
     routes: [
@@ -352,11 +345,6 @@ export async function runJobArchiveTweets(
   vm: XViewModel,
   jobIndex: number,
 ): Promise<boolean> {
-  await window.electron.trackEvent(
-    PlausibleEvents.X_JOB_STARTED_ARCHIVE_TWEETS,
-    navigator.userAgent,
-  );
-
   let archiveStartResponse: XArchiveStartResponse;
 
   vm.showBrowser = true;

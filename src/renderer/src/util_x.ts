@@ -1,6 +1,6 @@
 import CydAPIClient from "../../cyd-api-client";
 import type { DeviceInfo } from "./types";
-import { XAccount, XProgressInfo } from "../../shared_types";
+import { XAccount } from "../../shared_types";
 
 export async function xGetLastImportArchive(
   accountID: number,
@@ -110,43 +110,9 @@ export async function xRequiresPremium(
   return false;
 }
 
+// Kept for upstream caller compatibility. No statistics are read or sent.
 export async function xPostProgress(
-  apiClient: CydAPIClient,
-  deviceInfo: DeviceInfo | null,
-  accountID: number,
-) {
-  const progressInfo: XProgressInfo =
-    await window.electron.X.getProgressInfo(accountID);
-  const postXProgresResp = await apiClient.postXProgress(
-    {
-      account_uuid: progressInfo.accountUUID,
-      total_tweets_indexed: progressInfo.totalTweetsIndexed,
-      total_tweets_archived: progressInfo.totalTweetsArchived,
-      total_retweets_indexed: progressInfo.totalRetweetsIndexed,
-      total_likes_indexed: progressInfo.totalLikesIndexed,
-      total_bookmarks_indexed: progressInfo.totalBookmarksIndexed,
-      total_unknown_indexed: progressInfo.totalUnknownIndexed,
-      total_tweets_deleted: progressInfo.totalTweetsDeleted,
-      total_retweets_deleted: progressInfo.totalRetweetsDeleted,
-      total_likes_deleted: progressInfo.totalLikesDeleted,
-      total_bookmarks_deleted: progressInfo.totalBookmarksDeleted,
-      total_conversations_deleted: progressInfo.totalConversationsDeleted,
-      total_accounts_unfollowed: progressInfo.totalAccountsUnfollowed,
-      total_tweets_migrated_to_bluesky:
-        progressInfo.totalTweetsMigratedToBluesky,
-    },
-    deviceInfo?.valid ? true : false,
-  );
-  if (
-    postXProgresResp !== true &&
-    postXProgresResp !== false &&
-    postXProgresResp.error
-  ) {
-    // Silently log the error and continue
-    console.error(
-      "xPostProgress",
-      "failed to post progress to the API",
-      postXProgresResp.message,
-    );
-  }
-}
+  _apiClient: CydAPIClient,
+  _deviceInfo: DeviceInfo | null,
+  _accountID: number,
+) {}

@@ -313,58 +313,31 @@ describe("BrowserViewModel", () => {
     });
   });
 
-  describe("error reporting", () => {
-    it("attaches the page URL and a screenshot when the person can see the browser", async () => {
-      const vm = createMockBrowserViewModel();
-      vm.showBrowser = true;
-      vi.mocked(vm.getWebview()!.getURL).mockReturnValue(
-        "https://x.com/settings",
-      );
-
-      await vm.error(AutomationErrorType.x_unknownError, null, null, true);
-
-      const [, , , , , screenshot, sensitiveContext] = vi.mocked(
-        window.electron.database.createErrorReport,
-      ).mock.calls[0];
-      expect(screenshot).toBe("data:image/png;base64,test");
-      expect(JSON.parse(sensitiveContext as string).currentURL).toBe(
-        "https://x.com/settings",
-      );
-    });
-
-    it("attaches the page URL but no screenshot while the browser is hidden", async () => {
-      const vm = createMockBrowserViewModel();
-      vm.showBrowser = false;
-      vi.mocked(vm.getWebview()!.getURL).mockReturnValue(
-        "https://x.com/settings",
-      );
-
-      await vm.error(AutomationErrorType.x_unknownError, null, null, true);
-
-      const [, , , , , screenshot, sensitiveContext] = vi.mocked(
-        window.electron.database.createErrorReport,
-      ).mock.calls[0];
-      expect(screenshot).toBe("");
-      expect(JSON.parse(sensitiveContext as string).currentURL).toBe(
-        "https://x.com/settings",
-      );
-    });
-
-    it("attaches no page once the webview is gone", async () => {
-      const vm = createMockBrowserViewModel();
-      vm.showBrowser = true;
-      vm.destroy();
-
-      await vm.error(AutomationErrorType.x_unknownError, null, null, true);
-
-      const [, , , , , screenshot, sensitiveContext] = vi.mocked(
-        window.electron.database.createErrorReport,
-      ).mock.calls[0];
-      expect(screenshot).toBe("");
-      expect(JSON.parse(sensitiveContext as string)).not.toHaveProperty(
-        "currentURL",
-      );
-    });
+  describe("local error handling", () => {
+    it.each([true, false])(
+      "does not capture page data with showBrowser=%s",
+      async (visible) => {
+        const vm = createMockBrowserViewModel();
+        vm.showBrowser = visible;
+        const webview = vm.getWebview()!;
+        await vm.error(
+          AutomationErrorType.x_unknownError,
+          { private: "payload" },
+          null,
+          true,
+        );
+        expect(webview.capturePage).not.toHaveBeenCalled();
+        expect(window.electron.database.createErrorReport).toHaveBeenCalledWith(
+          1,
+          "X",
+          AutomationErrorType.x_unknownError,
+          "null",
+          "",
+          "",
+          "{}",
+        );
+      },
+    );
   });
 
   describe("TimeoutError", () => {

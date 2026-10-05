@@ -47,7 +47,7 @@ const electronAPI = {
 
   // Global functions
   checkForUpdates: () => {
-    ipcRenderer.invoke("checkForUpdates");
+    return ipcRenderer.invoke("checkForUpdates");
   },
   quitAndInstallUpdate: () => {
     ipcRenderer.invoke("quitAndInstallUpdate");
@@ -76,9 +76,13 @@ const electronAPI = {
   isFeatureEnabled: (feature: string): Promise<boolean> => {
     return ipcRenderer.invoke("isFeatureEnabled", feature);
   },
-  trackEvent: (eventName: string, userAgent: string): Promise<string> => {
-    return ipcRenderer.invoke("trackEvent", eventName, userAgent);
-  },
+  // Compatibility no-op: nothing crosses IPC or enters a telemetry queue.
+  trackEvent: (_eventName: string, _userAgent: string): Promise<string> =>
+    Promise.resolve(""),
+  checkInternetConnectivity: (accountType: string): Promise<boolean> =>
+    ipcRenderer.invoke("checkInternetConnectivity", accountType),
+  openPrivacyPolicy: (): Promise<string> =>
+    ipcRenderer.invoke("openPrivacyPolicy"),
   shouldOpenDevtools: (): Promise<boolean> => {
     return ipcRenderer.invoke("shouldOpenDevtools");
   },

@@ -48,6 +48,31 @@ assert.ok(
   "Missing review confirmation",
 );
 
+const resources = path.dirname(archive);
+assert.ok(
+  fs
+    .readFileSync(path.join(resources, "privacy.md"), "utf8")
+    .includes("No analytics or remote error reporting"),
+  "Missing bundled fork privacy notice",
+);
+assert.ok(
+  fs.existsSync(path.join(resources, "LICENSE")),
+  "Missing bundled GPL license",
+);
+for (const endpoint of [
+  "plausible.io/api/event",
+  "/x-progress",
+  "/facebook-progress",
+  "/automation-error-report",
+  "/user/activity",
+  "/newsletter",
+]) {
+  assert.ok(
+    !main.includes(endpoint) && !renderer.includes(endpoint),
+    `Packaged telemetry endpoint remains: ${endpoint}`,
+  );
+}
+
 if (process.platform === "win32") {
   const packages = findFiles("out/make", (filename) =>
     filename.endsWith("-full.nupkg"),

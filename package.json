@@ -4,7 +4,7 @@
   "version": "1.2.4",
   "main": ".vite/build/main.js",
   "description": "Automatically delete your data from tech platforms, except for what you want to keep",
-  "license": "proprietary",
+  "license": "GPL-3.0-only",
   "authors": "Lockdown Systems LLC",
   "scripts": {
     "clean": "node ./scripts/clean.mjs",
