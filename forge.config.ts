@@ -238,7 +238,11 @@ const config: ForgeConfig = {
     appCopyright: `Copyright ${new Date().getFullYear()} Lockdown Systems LLC`,
     appVersion: version,
     buildVersion: version,
-    win32metadata: { ProductName: "Cyd", FileDescription: "Cyd" },
+    win32metadata: {
+      CompanyName: "Cyd",
+      ProductName: "Cyd",
+      FileDescription: "Cyd",
+    },
     asar: true,
     // Workaround for electron-forge > 7.4.0 not including node_modules in asar
     // See: https://github.com/electron/forge/issues/3934
