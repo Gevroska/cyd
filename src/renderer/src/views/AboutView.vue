@@ -13,11 +13,11 @@ defineProps<{
 }>();
 
 const sourceClicked = async () => {
-  await window.electron.openURL("https://github.com/lockdown-systems/cyd");
+  await window.electron.openURL("https://github.com/Gevroska/cyd");
 };
 
 const privacyClicked = async () => {
-  await window.electron.openURL("https://cyd.social/privacy/");
+  await window.electron.openPrivacyPolicy();
 };
 
 const termsClicked = async () => {

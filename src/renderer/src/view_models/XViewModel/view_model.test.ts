@@ -865,7 +865,7 @@ describe("XViewModel", () => {
     });
   });
   describe("error reports", () => {
-    it("names the X account the report is about by its username", async () => {
+    it("keeps local retry state without collecting the X username", async () => {
       const createErrorReport = vi.fn().mockResolvedValue(undefined);
       (
         window.electron.database as unknown as {
@@ -878,7 +878,7 @@ describe("XViewModel", () => {
       await model.error(AutomationErrorType.x_unknownError, null, null, true);
 
       const [, , , , username] = createErrorReport.mock.calls[0];
-      expect(username).toBe("testuser");
+      expect(username).toBe("");
     });
   });
 });

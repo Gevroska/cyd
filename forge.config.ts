@@ -236,6 +236,13 @@ const config: ForgeConfig = {
         ? "systems.lockdown.cyd"
         : "systems.lockdown.cyd-dev",
     appCopyright: `Copyright ${new Date().getFullYear()} Lockdown Systems LLC`,
+    appVersion: version,
+    buildVersion: version,
+    win32metadata: {
+      CompanyName: "Cyd",
+      ProductName: "Cyd",
+      FileDescription: "Cyd",
+    },
     asar: true,
     // Workaround for electron-forge > 7.4.0 not including node_modules in asar
     // See: https://github.com/electron/forge/issues/3934
@@ -260,6 +267,8 @@ const config: ForgeConfig = {
       path.join(buildPath, "x-archive.zip"),
       path.join(buildPath, "config.json"),
       path.join(assetsPath, "icon.png"),
+      path.join(__dirname, "docs", "privacy.md"),
+      path.join(__dirname, "LICENSE"),
     ],
     protocols: protocols,
     osxSign: osxSign,
@@ -278,6 +287,7 @@ const config: ForgeConfig = {
     new MakerSquirrel({
       iconUrl: "https://releases.lockdown.systems/cyd/icon.ico",
       name: process.env.CYD_ENV == "prod" ? "Cyd" : "CydDev",
+      title: "Cyd",
       setupIcon: path.join(assetsPath, "installer-icon.ico"),
       loadingGif: path.join(assetsPath, "installer-loading.gif"),
       signWithParams:

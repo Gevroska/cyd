@@ -183,6 +183,15 @@ describe("TabsView", () => {
     expect(deviceInfo.value.valid).toBe(false);
   });
 
+  it("offers local accounts and manual updates without Cyd registration or billing", async () => {
+    await mountComponent();
+    await wrapper.find(".user-btn").trigger("click");
+    expect(wrapper.find(".menu-popup").text()).toContain("Check for updates");
+    expect(wrapper.find(".menu-popup").text()).not.toContain("Sign in");
+    expect(wrapper.find(".menu-popup").text()).not.toContain("Premium");
+    expect(window.electron.database.getConfig).not.toHaveBeenCalled();
+  });
+
   it("if you add another unknown account, it uses the existing one", async () => {
     await mountComponent();
 

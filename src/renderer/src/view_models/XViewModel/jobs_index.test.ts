@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as IndexJobs from "./jobs_index";
 import type { XViewModel } from "./view_model";
-import { PlausibleEvents } from "../../types";
 import { TimeoutError, URLChangedError } from "../BaseViewModel";
 import { AutomationErrorType } from "../../automation_errors";
 import type { XArchiveStartResponse } from "../../../../shared_types";
@@ -71,10 +70,7 @@ describe("jobs_index.ts", () => {
 
       await IndexJobs.runJobIndexTweets(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_INDEX_TWEETS,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set correct UI state", async () => {
@@ -557,10 +553,7 @@ describe("jobs_index.ts", () => {
     it("should track analytics event on start", async () => {
       await IndexJobs.runJobArchiveTweets(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_ARCHIVE_TWEETS,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should get tweets to archive from electron API", async () => {
@@ -609,10 +602,7 @@ describe("jobs_index.ts", () => {
 
       await IndexJobs.runJobIndexLikes(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_INDEX_LIKES,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should load the current likes history page", async () => {
@@ -744,10 +734,7 @@ describe("jobs_index.ts", () => {
 
       await IndexJobs.runJobIndexBookmarks(vm, 0);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_JOB_STARTED_INDEX_BOOKMARKS,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should set correct UI state", async () => {
