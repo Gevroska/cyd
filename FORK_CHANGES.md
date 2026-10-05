@@ -241,3 +241,11 @@ When updating this fork from upstream, the custom behavior documented above shou
 - Bundle the fork's privacy notice and license, show a first-use privacy summary, and document Windows uninstall/data retention.
 - Set and verify Windows ProductName Cyd and versions from package.json before SignPath origin verification; require the same restrictions in SignPath configuration.
 - Correct the package licenses to GPL-3.0-only and document public release roles. SignPath acceptance, reputation, and review-process approval remain external requirements.
+
+## Local diagnostic logs
+
+- Restore local file logging without restoring analytics or remote error-report uploads.
+- Append across application sessions without clearing the entries before a crash. Add a timestamped session-start marker.
+- Write synchronously and keep `main.log` plus nine size-based backups (`main.1.log` through `main.9.log`), approximately 1 MiB each and 10 MiB total. Replace the oldest file only when the active file reaches its size threshold.
+- Initialize file logging only after the single-instance lock is acquired and outside Squirrel installer events. Preserve an existing legacy `main.old.log` as the first numbered backup when migrating.
+- Update the bundled privacy notice to describe these local files.
