@@ -247,5 +247,7 @@ When updating this fork from upstream, the custom behavior documented above shou
 - Restore local file logging without restoring analytics or remote error-report uploads.
 - Append across application sessions without clearing the entries before a crash. Add a timestamped session-start marker.
 - Write synchronously and keep `main.log` plus nine size-based backups (`main.1.log` through `main.9.log`), approximately 1 MiB each and 10 MiB total. Replace the oldest file only when the active file reaches its size threshold.
+- Filter successful SQL statements and repetitive account refreshes from the file history; preserve other debug messages and all warnings/errors. Log failed SQL with redacted parameters.
+- Enable local native crash minidumps before application windows are created, using Electron Crashpad with uploads disabled and no server configured. Store dumps separately in the application's `crash-dumps` directory without changing Windows error-reporting settings.
 - Initialize file logging only after the single-instance lock is acquired and outside Squirrel installer events. Preserve an existing legacy `main.old.log` as the first numbered backup when migrating.
 - Update the bundled privacy notice to describe these local files.
