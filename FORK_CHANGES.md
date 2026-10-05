@@ -232,15 +232,15 @@ This update merges upstream through `9cb2aae3de934c06414d6e62cf9161611ec53fe0`, 
 
 When updating this fork from upstream, the custom behavior documented above should be reviewed carefully during conflict resolution so that upstream changes do not unintentionally remove or alter fork-specific functionality.
 
-## Privacy and signing preparation
+## Privacy and release packaging
 
 - Remove Plausible events and Cyd service account, progress, activity, newsletter, and diagnostic uploads; retain transport-free compatibility interfaces for upstream integration.
 - Replace report submission with a local retry/cancel notice, without screenshots, account labels, page URLs, diagnostic payloads, or report logs.
 - Stop automatic upstream updates; open this fork's downloads only on user request.
 - Probe the selected social platform for connectivity. Preserve platform actions, local archives, credentials, and progress counters; disclose the existing Bluesky OAuth metadata and redirect service.
 - Bundle the fork's privacy notice and license, show a first-use privacy summary, and document Windows uninstall/data retention.
-- Set and verify Windows ProductName Cyd and versions from package.json before SignPath origin verification; require the same restrictions in SignPath configuration.
-- Correct the package licenses to GPL-3.0-only and document public release roles. SignPath acceptance, reputation, and review-process approval remain external requirements.
+- Set and verify Windows ProductName Cyd and versions from package.json before publishing the installer.
+- Correct the package licenses to GPL-3.0-only and retain the runtime dependency license inventory.
 
 ## Local diagnostic logs
 
