@@ -12,17 +12,18 @@ import ts from "typescript";
 const tempRoot = fs.realpathSync(os.tmpdir());
 const fixture = fs.mkdtempSync(path.join(tempRoot, "cyd-crash-check-"));
 assert.ok(fixture.startsWith(path.join(tempRoot, "cyd-crash-check-")));
-const source = fs.readFileSync("src/local_crash_dumps.ts", "utf8");
-fs.writeFileSync(
-  path.join(fixture, "local_crash_dumps.cjs"),
-  ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-      esModuleInterop: true,
-    },
-  }).outputText,
-);
+for (const module of ["local_debug", "local_crash_dumps"]) {
+  fs.writeFileSync(
+    path.join(fixture, `${module}.js`),
+    ts.transpileModule(fs.readFileSync(`src/${module}.ts`, "utf8"), {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        esModuleInterop: true,
+      },
+    }).outputText,
+  );
+}
 fs.writeFileSync(
   path.join(fixture, "package.json"),
   JSON.stringify({
@@ -36,15 +37,16 @@ fs.writeFileSync(
   `const fs = require("node:fs");
 const path = require("node:path");
 const { app, crashReporter } = require("electron");
-const { startLocalCrashDumps } = require("./local_crash_dumps.cjs");
+const { startLocalCrashDumps } = require("./local_crash_dumps.js");
 app.disableHardwareAcceleration();
 const profile = path.join(__dirname, "profile");
 fs.mkdirSync(profile, {recursive: true});
 app.setPath("userData", profile);
 const directory = startLocalCrashDumps(app, crashReporter);
-if (crashReporter.getUploadToServer()) throw new Error("Crash uploads enabled");
-fs.writeFileSync(path.join(__dirname, "enabled.json"), JSON.stringify({directory, uploads: false}));
-app.whenReady().then(() => process.crash());
+if (directory && crashReporter.getUploadToServer()) throw new Error("Crash uploads enabled");
+fs.writeFileSync(path.join(__dirname, "enabled.json"), JSON.stringify({enabled: Boolean(directory), directory, uploads: false}));
+if (!directory) app.exit(0);
+else app.whenReady().then(() => process.crash());
 `,
 );
 
@@ -63,7 +65,23 @@ function findDumps(directory) {
 try {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
-  const result = spawnSync(electron, ["--no-sandbox", fixture], {
+  const defaultResult = spawnSync(electron, ["--no-sandbox", fixture], {
+    env,
+    encoding: "utf8",
+    timeout: 30000,
+  });
+  assert.ifError(defaultResult.error);
+  assert.equal(defaultResult.status, 0, defaultResult.stderr);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(fixture, "enabled.json"), "utf8"))
+      .enabled,
+    false,
+  );
+  assert.ok(!fs.existsSync(path.join(fixture, "profile", "crash-dumps")));
+  process.stdout.write(
+    "Verified native crash capture is disabled by default.\n",
+  );
+  const result = spawnSync(electron, ["--no-sandbox", fixture, "-debug"], {
     env,
     encoding: "utf8",
     timeout: 30000,

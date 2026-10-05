@@ -55,6 +55,12 @@ assert.ok(
     /uploadToServer\s*:\s*(false|!1)/.test(main),
   "Missing local-only native crash capture",
 );
+assert.ok(
+  main.includes("-debug") &&
+    main.includes("--debug") &&
+    main.includes("Could not clean up expired local crash dumps:"),
+  "Missing opt-in diagnostics or dump expiry",
+);
 
 const renderer = listPackage(archive)
   .map((filename) => filename.replaceAll("\\", "/").replace(/^\//, ""))

@@ -1,5 +1,4 @@
 import { session } from "electron";
-import type { OnSendHeadersListenerDetails } from "electron";
 import log from "electron-log/main";
 import Database from "better-sqlite3";
 import { getAccount, exec, getConfig, setConfig } from "../../database";
@@ -27,12 +26,6 @@ export abstract class BaseAccountController<TProgress = unknown> {
     this.mitmController = mitmController;
     this.accountID = accountID;
     this.refreshAccount();
-
-    // Monitor web request metadata
-    const ses = session.fromPartition(`persist:account-${this.accountID}`);
-    ses.webRequest.onSendHeaders((details) => {
-      this.handleCookieTracking(details);
-    });
   }
 
   cleanup() {
@@ -46,12 +39,6 @@ export abstract class BaseAccountController<TProgress = unknown> {
   protected abstract getAccountType(): string;
   protected abstract getAccountProperty(): unknown;
   protected abstract getAccountDataPath(): string;
-  // Only meaningful for subclasses that still read cookies out of request
-  // headers. Chromium hides the Cookie header from webRequest as of Electron
-  // 44, so a subclass is better off asking the session for the cookie.
-  protected handleCookieTracking(
-    _details: OnSendHeadersListenerDetails,
-  ): void {}
   protected abstract initDB(): void;
   /**
    * Returns the list of URL patterns to monitor for MITM interception.
