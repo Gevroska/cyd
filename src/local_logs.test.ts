@@ -2,7 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { getLocalLogPath, rotateLocalLog } from "./local_logs";
+import log from "electron-log/node";
+import { filterLocalLog, getLocalLogPath, rotateLocalLog } from "./local_logs";
 
 describe("local log history", () => {
   let directory: string;
@@ -53,5 +54,41 @@ describe("local log history", () => {
       "recent history\n",
     );
     expect(fs.existsSync(path.join(directory, "main.old.log"))).toBe(false);
+  });
+
+  test("repetitive database reads cannot crowd errors out of the file history", () => {
+    const logger = log.create({ logId: path.basename(directory) });
+    logger.transports.console.level = false;
+    logger.transports.file.level = "debug";
+    logger.transports.file.resolvePathFn = () => getLocalLogPath(directory);
+    logger.hooks.push(filterLocalLog);
+
+    for (let i = 0; i < 1000; i++) {
+      logger.debug("Executing SQL:", "SELECT * FROM account WHERE id = ?");
+      logger.debug("Returning existing XAccountController for accountID", 1);
+      logger.debug("Controller.refreshAccount: accountUUID=example");
+    }
+    logger.debug("MITMController: got response", { status: 200 });
+    logger.warn("Executing SQL:", "slow statement");
+    logger.error("SQL statement failed:", "missing table");
+
+    const content = fs.readFileSync(getLocalLogPath(directory), "utf8");
+    expect(content).not.toContain("SELECT * FROM account");
+    expect(content).not.toContain("Returning existing");
+    expect(content).not.toContain("refreshAccount");
+    expect(content).toContain("MITMController: got response");
+    expect(content).toContain("slow statement");
+    expect(content).toContain("SQL statement failed:");
+    expect(Buffer.byteLength(content)).toBeLessThan(1024);
+  });
+
+  test("file filtering leaves other debug transports available", () => {
+    const message = {
+      date: new Date(),
+      level: "debug" as const,
+      data: ["Executing SQL:", "SELECT 1"],
+    };
+    expect(filterLocalLog(message, undefined, "console")).toBe(message);
+    expect(filterLocalLog(message, undefined, "file")).toBe(false);
   });
 });

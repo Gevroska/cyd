@@ -35,6 +35,16 @@ assert.ok(
   main.includes("Local log session started"),
   "Missing local logging setup",
 );
+assert.ok(
+  main.includes("SQL statement failed:"),
+  "Missing SQL error diagnostics",
+);
+assert.ok(
+  main.includes("Local crash dumps enabled:") &&
+    main.includes("crash-dumps") &&
+    /uploadToServer\s*:\s*(false|!1)/.test(main),
+  "Missing local-only native crash capture",
+);
 
 const renderer = listPackage(archive)
   .map((filename) => filename.replaceAll("\\", "/").replace(/^\//, ""))
