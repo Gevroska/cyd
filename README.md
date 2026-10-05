@@ -22,3 +22,9 @@ Learn all about how to use Cyd, what features it has, and how to get involved in
 Read the our [For Contributors](https://cyd.social/docs/contributing/contributors) page for the Code of Conduct, legal stuff, etc.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to build and run Cyd from source.
+
+## Code signing policy
+
+Free code signing provided by SignPath.io, certificate by SignPath Foundation.
+
+Windows release signing, project roles, privacy information, and the release procedure are documented in [docs/code-signing.md](./docs/code-signing.md).
