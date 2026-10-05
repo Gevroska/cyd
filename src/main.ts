@@ -15,6 +15,7 @@ import {
   powerSaveBlocker,
   powerMonitor,
   FileFilter,
+  crashReporter,
 } from "electron";
 import mime from "mime-types";
 import electronSquirrelStartup from "electron-squirrel-startup";
@@ -22,10 +23,12 @@ import electronSquirrelStartup from "electron-squirrel-startup";
 import * as database from "./database";
 import { platformConnectivityURL } from "./platform_connectivity";
 import {
+  filterLocalLog,
   getLocalLogPath,
   LOCAL_LOG_FILE_SIZE,
   rotateLocalLog,
 } from "./local_logs";
+import { startLocalCrashDumps } from "./local_crash_dumps";
 import { defineIPCX } from "./account_x";
 import { defineIPCFacebook } from "./account_facebook";
 import {
@@ -709,6 +712,7 @@ if (!app.requestSingleInstanceLock()) {
         }
       };
       log.transports.file.sync = true;
+      log.hooks.push(filterLocalLog);
       log.transports.file.level = "debug";
     } catch (error) {
       log.warn("Could not initialize local session logs:", error);
@@ -717,6 +721,12 @@ if (!app.requestSingleInstanceLock()) {
     log.info("Local log session started", new Date().toISOString());
     log.info("Cyd version:", app.getVersion());
     log.info("User data folder is at:", app.getPath("userData"));
+    try {
+      const dumpDirectory = startLocalCrashDumps(app, crashReporter);
+      log.info("Local crash dumps enabled:", dumpDirectory);
+    } catch (error) {
+      log.warn("Could not enable local crash dumps:", error);
+    }
   }
   app.on("second-instance", (event, commandLine, _) => {
     // Someone tried to run a second instance, focus the window

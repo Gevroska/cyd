@@ -9,3 +9,5 @@ Automation errors preserve only local retry/cancel state. They do not capture re
 Platform requests required by an explicitly started operation remain. Connectivity probes contact that platform. The published Bluesky OAuth metadata and redirect service remain part of Bluesky authentication and are disclosed in the bundled privacy notice. Local social account credentials, archives, and task counters remain functional.
 
 Regression tests cover startup, legacy service methods with credentials, local error decisions, and absence of diagnostic capture. Packaged builds are checked for telemetry endpoints and for the bundled privacy notice.
+
+Native crash minidumps are local diagnostics, enabled through Electron Crashpad with `uploadToServer: false` and no `submitURL`. They are stored in the application's `crash-dumps` directory and can contain process-memory fragments. They are never submitted automatically. Retry/cancel error records remain minimal and unchanged. Text logs omit successful SQL and repetitive account refreshes while retaining redacted SQL failures. An isolated native-crash fixture verifies that capture creates a minidump with uploads disabled.

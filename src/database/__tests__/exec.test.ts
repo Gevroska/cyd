@@ -59,6 +59,10 @@ describe("exec", () => {
     expect(message).not.toBe("");
     expect(message).not.toContain(SECRET);
     expect(message).toContain("nonexistent");
+    const logged = JSON.stringify(logMock.error.mock.calls);
+    expect(logged).toContain("SQL statement failed:");
+    expect(logged).toContain("nonexistent");
+    expect(logged).not.toContain(SECRET);
   });
 
   test("still runs the statement with its real parameters", () => {
