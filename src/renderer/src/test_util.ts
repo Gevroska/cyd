@@ -410,6 +410,8 @@ export function mockElectronAPI() {
 
     // Utility (used by all view models)
     shouldOpenDevtools: vi.fn().mockResolvedValue(false),
+    checkInternetConnectivity: vi.fn().mockResolvedValue(true),
+    openPrivacyPolicy: vi.fn().mockResolvedValue(""),
     getAPIURL: vi.fn().mockResolvedValue("https://api.test.com"),
     getMode: vi.fn().mockResolvedValue("prod"),
     getVersion: vi.fn().mockResolvedValue("1.0.0"),

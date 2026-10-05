@@ -47,11 +47,6 @@ export class XViewModel extends BrowserViewModel {
   // Variables related to debugging
   public debugAutopauseEndOfStep: boolean = false;
 
-  /** X error reports are about an X account, which a username names. */
-  protected get errorReportAccountLabel(): string {
-    return this.account?.xAccount?.username ?? "";
-  }
-
   async init(webview: WebviewTag) {
     if (
       this.account &&

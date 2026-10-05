@@ -1,6 +1,3 @@
 {
-  "mode": "prod",
-  "apiURL": "https://api.cyd.social",
-  "dashURL": "https://dash.cyd.social",
-  "plausibleDomain": "plausible-app.cyd.social"
+  "mode": "prod"
 }

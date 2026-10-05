@@ -3,7 +3,6 @@ import * as Auth from "./auth";
 import type { XViewModel } from "./view_model";
 import { State } from "./types";
 import { URLChangedError } from "../BaseViewModel";
-import { PlausibleEvents } from "../../types";
 import { AutomationErrorType } from "../../automation_errors";
 import type { XUserInfo } from "../../types_x";
 import type { Account, XAccount } from "../../../../shared_types";
@@ -180,10 +179,7 @@ describe("auth.ts", () => {
 
       await Auth.login(mockVM as XViewModel);
 
-      expect(mockElectron.trackEvent).toHaveBeenCalledWith(
-        PlausibleEvents.X_USER_SIGNED_IN,
-        navigator.userAgent,
-      );
+      expect(mockElectron.trackEvent).not.toHaveBeenCalled();
     });
 
     it("should not track sign-in event if not in Login state", async () => {

@@ -1,6 +1,5 @@
 import type { Emitter, EventType } from "mitt";
 import type { Account } from "../../../shared_types";
-import { PlausibleEvents } from "../types";
 import { AutomationErrorType } from "../automation_errors";
 import { logObj } from "../util";
 import { TranslatorFn, TranslatorParams, translate } from "../i18n/translator";
@@ -18,17 +17,6 @@ type Log = {
   func: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   message?: any;
-};
-
-/**
- * What a failure's page looked like when it happened. Only a platform that
- * drives a browser has a page, so the core attaches nothing.
- */
-export type ErrorReportPageContext = {
-  /** The URL the platform was on. */
-  currentURL?: string;
-  /** A screenshot of that page, as a data URL. */
-  screenshotDataURL?: string;
 };
 
 /**
@@ -182,71 +170,27 @@ export class BaseViewModel {
   async error(
     automationErrorType: AutomationErrorType,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    errorReportData: any = null,
+    _errorReportData: any = null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sensitiveContextData: any = null,
+    _sensitiveContextData: any = null,
     allowContinue: boolean = false,
   ) {
-    console.error(
-      `Automation Error: ${automationErrorType}`,
-      errorReportData,
-      sensitiveContextData,
-    );
-
-    // Submit progress to the API. Only the X view listens, so this is the one
-    // place the core is not platform-neutral yet.
-    this.emitter?.emit(`x-submit-progress-${this.account?.id}`);
-
-    await window.electron.trackEvent(
-      PlausibleEvents.AUTOMATION_ERROR_OCCURED,
-      navigator.userAgent,
-    );
-
-    // Get whatever the platform can say about the page it failed on
-    const pageContext = await this.errorReportPageContext();
-
-    // Add logs to sensitiive context data
-    if (sensitiveContextData === null) {
-      sensitiveContextData = {};
-    }
-    sensitiveContextData.logs = this.logs;
-
-    // Add current URL to sensitive context data
-    if (pageContext.currentURL !== undefined) {
-      sensitiveContextData.currentURL = pageContext.currentURL;
-    }
-
-    // Create the error
+    console.error(`Automation Error: ${automationErrorType}`);
+    // Keep only the local state required by the retry/cancel dialog.
+    // Do not capture page screenshots, URLs, usernames, payloads, or logs.
     await window.electron.database.createErrorReport(
       this.account.id,
       this.account.type,
       automationErrorType,
-      JSON.stringify(errorReportData),
-      this.errorReportAccountLabel,
-      pageContext.screenshotDataURL ?? "",
-      JSON.stringify(sensitiveContextData),
+      "null",
+      "",
+      "",
+      "{}",
     );
 
     if (!allowContinue) {
       await this.showErrorModal();
     }
-  }
-
-  /**
-   * How an error report names the account it is about. Each platform knows its
-   * own accounts, so each one derives its own label, and a platform that must
-   * not name the account keeps this empty.
-   */
-  protected get errorReportAccountLabel(): string {
-    return "";
-  }
-
-  /**
-   * The page a failure happened on. Only a platform driven through a browser
-   * has one, so the core reports a failure with no page at all.
-   */
-  protected async errorReportPageContext(): Promise<ErrorReportPageContext> {
-    return {};
   }
 
   async showErrorModal() {
@@ -262,26 +206,7 @@ export class BaseViewModel {
   }
 
   async checkInternetConnectivity(): Promise<boolean> {
-    const apiURL = await window.electron.getAPIURL();
-    const testURL = `${apiURL}/health`;
-    if (!testURL) {
-      this.log("checkInternetConnectivity", "apiURL is not set");
-      return false;
-    }
-    try {
-      await fetch(testURL, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(2000),
-      });
-      this.log("checkInternetConnectivity", "internet is up");
-      return true;
-    } catch (error) {
-      this.log(
-        "checkInternetConnectivity",
-        `internet is down: ${(error as Error).toString()}`,
-      );
-      return false;
-    }
+    return window.electron.checkInternetConnectivity(this.account.type);
   }
 
   // Pause and resume the jobs

@@ -1,4 +1,5 @@
 import fs from "fs";
+import { platformConnectivityURL } from "./platform_connectivity";
 import path from "path";
 
 import { Proxy, IContext } from "http-mitm-proxy";
@@ -214,12 +215,13 @@ export class MITMController implements IMITMController {
     );
 
     // Make the webview use the proxy
-    ses.setProxy({
+    await ses.setProxy({
       proxyRules: `127.0.0.1:${this.proxyPort}`,
     });
 
     // Wait for proxy to be ready
-    const testURL = "https://api.cyd.social/health";
+    const testURL = platformConnectivityURL(this.account?.type ?? "");
+    if (!testURL) return false;
     let success = false;
     log.debug(
       `MITMController: Account ${this.account?.id}, waiting for proxy to be ready...`,
