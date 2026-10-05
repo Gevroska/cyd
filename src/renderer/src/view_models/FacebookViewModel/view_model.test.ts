@@ -459,7 +459,7 @@ describe("FacebookViewModel", () => {
   });
 
   describe("error reports", () => {
-    it("names the Facebook account the report is about by its username", async () => {
+    it("keeps local retry state without collecting the Facebook username", async () => {
       const vm = createMockFacebookViewModel({
         facebookAccount: { username: "Test User" },
       });
@@ -474,7 +474,7 @@ describe("FacebookViewModel", () => {
       const [, , , , username] = vi.mocked(
         window.electron.database.createErrorReport,
       ).mock.calls[0];
-      expect(username).toBe("Test User");
+      expect(username).toBe("");
     });
   });
 
