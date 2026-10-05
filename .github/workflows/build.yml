@@ -147,6 +147,10 @@ jobs:
       - name: Verify packaged fork features
         run: node scripts/verify-fork-build.mjs
 
+      - name: Verify local native crash capture
+        if: matrix.os == 'windows-latest'
+        run: node scripts/verify-local-crash-dumps.mjs
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

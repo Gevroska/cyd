@@ -170,6 +170,13 @@ export const exec = (
     return ret;
   } catch (error) {
     const exception = JSON.parse(packageExceptionForReport(error as Error));
+    log.error(
+      "SQL statement failed:",
+      sql,
+      "Params:",
+      redactSQLParams(paramsConverted),
+      exception,
+    );
     throw new Error(
       JSON.stringify({
         exception: exception,
