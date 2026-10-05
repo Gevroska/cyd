@@ -28,7 +28,11 @@ import {
   LOCAL_LOG_FILE_SIZE,
   rotateLocalLog,
 } from "./local_logs";
-import { startLocalCrashDumps } from "./local_crash_dumps";
+import {
+  startCrashDumpCleanup,
+  startLocalCrashDumps,
+} from "./local_crash_dumps";
+import { isLocalDebugEnabled } from "./local_debug";
 import { defineIPCX } from "./account_x";
 import { defineIPCFacebook } from "./account_facebook";
 import {
@@ -198,13 +202,14 @@ if (!app.setAsDefaultProtocolClient(protocolString)) {
 }
 
 // In Linux and Windows, handle cyd URLs passed in via the CLI
-const lastArg =
-  process.argv.length >= 2 ? process.argv[process.argv.length - 1] : "";
+const cydLaunchURL = process.argv.find((arg) =>
+  arg.startsWith(protocolString + ":"),
+);
 if (
   (process.platform == "linux" || process.platform == "win32") &&
-  lastArg.startsWith(protocolString + ":")
+  cydLaunchURL
 ) {
-  openCydURL(lastArg);
+  openCydURL(cydLaunchURL);
 }
 
 // In macOS, handle the cyd: URLs
@@ -696,6 +701,14 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0);
 } else {
   if (!electronSquirrelStartup) {
+    const stopCrashDumpCleanup = startCrashDumpCleanup(
+      app.getPath("userData"),
+      (error) =>
+        log.warn("Could not clean up expired local crash dumps:", error),
+    );
+    app.once("will-quit", stopCrashDumpCleanup);
+  }
+  if (!electronSquirrelStartup && isLocalDebugEnabled(process.argv)) {
     try {
       const currentLog = getLocalLogPath(
         path.join(app.getPath("userData"), "logs"),
@@ -734,8 +747,10 @@ if (!app.requestSingleInstanceLock()) {
       if (win.isMinimized()) win.restore();
       win.focus();
     }
-    // commandLine is array of strings in which last element is deep link URL
-    const cydURL = commandLine.pop();
+    // A launch flag must not be mistaken for an OAuth callback URL.
+    const cydURL = commandLine.find((arg) =>
+      arg.startsWith(protocolString + ":"),
+    );
     if (cydURL) {
       openCydURL(cydURL);
     }
