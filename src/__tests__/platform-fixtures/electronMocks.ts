@@ -68,9 +68,13 @@ const createSession = (partition: string): Record<string, unknown> => {
 
   const sessionInstance = {
     webRequest: {
-      onCompleted: vi.fn((cb: (details: unknown) => void) => {
-        handlers.onCompleted.push(cb);
-      }),
+      onCompleted: vi.fn(
+        (filterOrCallback: unknown, callback?: (details: unknown) => void) => {
+          handlers.onCompleted.push(
+            callback ?? (filterOrCallback as (details: unknown) => void),
+          );
+        },
+      ),
       onSendHeaders: vi.fn((cb: (details: unknown) => void) => {
         handlers.onSendHeaders.push(cb);
       }),

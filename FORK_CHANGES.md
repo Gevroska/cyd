@@ -244,10 +244,17 @@ When updating this fork from upstream, the custom behavior documented above shou
 
 ## Local diagnostic logs
 
-- Restore local file logging without restoring analytics or remote error-report uploads.
+- Diagnostic file logging and native crash dumps require `-debug` (or `--debug`) at launch. Both are disabled by default, without restoring analytics or remote error-report uploads.
 - Append across application sessions without clearing the entries before a crash. Add a timestamped session-start marker.
 - Write synchronously and keep `main.log` plus nine size-based backups (`main.1.log` through `main.9.log`), approximately 1 MiB each and 10 MiB total. Replace the oldest file only when the active file reaches its size threshold.
 - Filter successful SQL statements and repetitive account refreshes from the file history; preserve other debug messages and all warnings/errors. Log failed SQL with redacted parameters.
 - Enable local native crash minidumps before application windows are created, using Electron Crashpad with uploads disabled and no server configured. Store dumps separately in the application's `crash-dumps` directory without changing Windows error-reporting settings.
+- Remove dumps older than 24 hours on startup and once per minute while Cyd runs, even without the debug flag; if closed, clean up on the next launch.
 - Initialize file logging only after the single-instance lock is acquired and outside Squirrel installer events. Preserve an existing legacy `main.old.log` as the first numbered backup when migrating.
 - Update the bundled privacy notice to describe these local files.
+
+## X native request-observer crash
+
+- A matched Electron 44.4.3 minidump identified a null read in `DataPipeGetterProxy::Clone`, called while `ObservedRequestStarted` prepared `onSendHeaders` details. The shared controller installed this observer on X despite X reading cookies directly from its session.
+- Register legacy outgoing-cookie observation only for Facebook. X no longer registers `onSendHeaders`; constrain its completion observer to GraphQL API URLs before Electron converts request bodies, preserving query-ID discovery and rate-limit handling.
+- Verify controller cookies, API discovery, rate limits, and native Blob uploads against an isolated loopback server, without opening personal accounts.

@@ -2,6 +2,7 @@ import { electronMockHelpers } from "../../../__tests__/platform-fixtures/electr
 import "../../../__tests__/platform-fixtures/network";
 
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+import { X_API_REQUEST_FILTER } from "../../web_request_filter";
 
 import {
   createXControllerTestContext,
@@ -72,6 +73,36 @@ describe("XAccountController - cookies", () => {
     expect(ses.cookies.get).toHaveBeenCalledWith({
       url: "https://api.x.com/",
       name: "ct0",
+    });
+  });
+
+  test("does not register the native upload-body observer that crashed", () => {
+    const ses = electronMockHelpers.getSessionMock(partition) as {
+      webRequest: {
+        onSendHeaders: ReturnType<typeof vi.fn>;
+        onCompleted: ReturnType<typeof vi.fn>;
+      };
+    };
+    expect(ses.webRequest.onSendHeaders).not.toHaveBeenCalled();
+    expect(ses.webRequest.onCompleted).toHaveBeenCalledWith(
+      X_API_REQUEST_FILTER,
+      expect.any(Function),
+    );
+  });
+
+  test("still observes GraphQL identifiers and rate-limit responses", async () => {
+    electronMockHelpers.triggerOnCompleted(partition, {
+      url: "https://x.com/i/api/graphql/current-id/UserTweets",
+      method: "GET",
+      statusCode: 429,
+      responseHeaders: { "x-rate-limit-reset": ["1791199999"] },
+    });
+    expect(
+      await controllerContext!.controller.getObservedGraphqlQueryIDs(),
+    ).toEqual({ UserTweets: "current-id" });
+    expect(await controllerContext!.controller.isRateLimited()).toMatchObject({
+      isRateLimited: true,
+      rateLimitReset: 1791199999,
     });
   });
 });
