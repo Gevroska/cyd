@@ -2,12 +2,6 @@ name: Build and Test Cyd
 
 on:
   workflow_dispatch:
-    inputs:
-      sign_windows_release:
-        description: Submit the Windows installer to SignPath and publish the signed dev-latest release
-        required: false
-        type: boolean
-        default: false
   push:
     branches: [main]
   pull_request:
@@ -179,17 +173,10 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: windows-latest
-    timeout-minutes: 330
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: write
-    env:
-      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-      SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-      SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-      SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-      SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-
     steps:
       - name: Checkout release metadata
         uses: actions/checkout@v4
@@ -226,117 +213,10 @@ jobs:
           ./scripts/verify-windows-metadata.ps1 -Path $publishPath -ExpectedVersion $version
           "publish-path=$publishPath" >> $env:GITHUB_OUTPUT
 
-      - name: Select Windows publication mode
-        id: publication-mode
-        shell: pwsh
-        env:
-          SIGN_WINDOWS_RELEASE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_windows_release }}
-        run: |
-          $required = @(
-            $env:SIGNPATH_API_TOKEN,
-            $env:SIGNPATH_ORGANIZATION_ID,
-            $env:SIGNPATH_PROJECT_SLUG,
-            $env:SIGNPATH_SIGNING_POLICY_SLUG,
-            $env:SIGNPATH_ARTIFACT_CONFIGURATION_SLUG
-          )
-          $configured = -not ($required | Where-Object { [string]::IsNullOrWhiteSpace($_) })
-          $requested = $env:SIGN_WINDOWS_RELEASE_REQUESTED -eq "true"
-
-          if ($requested -and $env:GITHUB_REF -ne "refs/heads/main") {
-            throw "SignPath release signing is only allowed from the main branch."
-          }
-
-          if ($requested -and -not $configured) {
-            throw "Signed release requested, but one or more SignPath repository settings are missing. See docs/code-signing.md."
-          }
-
-          if ($requested) {
-            $mode = "signed"
-          }
-          elseif ($configured) {
-            # Once SignPath is configured, do not let an ordinary push replace a
-            # previously signed rolling release with an unsigned executable.
-            $mode = "skip"
-          }
-          else {
-            # Transitional behavior before SignPath onboarding is complete.
-            $mode = "unsigned"
-          }
-
-          "mode=$mode" >> $env:GITHUB_OUTPUT
-          Write-Host "Windows publication mode: $mode"
-
-      - name: Explain skipped unsigned publication
-        if: steps.publication-mode.outputs.mode == 'skip'
-        shell: pwsh
-        run: |
-          Write-Host "SignPath is configured, so this ordinary build will not overwrite dev-latest with an unsigned Windows installer."
-          Write-Host "Run this workflow manually on main with sign_windows_release enabled to publish a signed installer."
-
-      - name: Prepare SignPath input
-        if: steps.publication-mode.outputs.mode == 'signed'
-        shell: pwsh
-        run: |
-          $dir = Join-Path $env:RUNNER_TEMP "signpath-input"
-          New-Item -ItemType Directory -Path $dir -Force | Out-Null
-          Copy-Item -LiteralPath "${{ steps.prepare-installer.outputs.publish-path }}" -Destination (Join-Path $dir "CydDevSetup-signpath-input.exe") -Force
-
-      - name: Upload unsigned installer for SignPath origin verification
-        if: steps.publication-mode.outputs.mode == 'signed'
-        id: upload-signpath-input
-        uses: actions/upload-artifact@v4
-        with:
-          name: signpath-windows-input-${{ github.run_id }}
-          path: ${{ runner.temp }}/signpath-input/CydDevSetup-signpath-input.exe
-          if-no-files-found: error
-
-      - name: Submit SignPath signing request
-        if: steps.publication-mode.outputs.mode == 'signed'
-        id: signpath
-        uses: signpath/github-action-submit-signing-request@v3
-        with:
-          api-token: ${{ env.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY_SLUG }}
-          artifact-configuration-slug: ${{ env.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-          github-artifact-id: ${{ steps.upload-signpath-input.outputs.artifact-id }}
-          wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 18000
-          output-artifact-directory: ${{ runner.temp }}/signpath-signed
-
-      - name: Verify and select signed installer
-        if: steps.publication-mode.outputs.mode == 'signed'
-        shell: pwsh
-        run: |
-          $signedRoot = Join-Path $env:RUNNER_TEMP "signpath-signed"
-          $signed = @(Get-ChildItem -LiteralPath $signedRoot -Recurse -File -Filter "*.exe")
-          if ($signed.Count -ne 1) {
-            Write-Host "Signed artifact files:"
-            Get-ChildItem -LiteralPath $signedRoot -Recurse -File | ForEach-Object { Write-Host $_.FullName }
-            throw "Expected exactly one signed executable from SignPath."
-          }
-
-          $publishPath = "${{ steps.prepare-installer.outputs.publish-path }}"
-          Copy-Item -LiteralPath $signed[0].FullName -Destination $publishPath -Force
-
-          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
-          ./scripts/verify-windows-metadata.ps1 -Path $publishPath -ExpectedVersion $version
-          $signature = Get-AuthenticodeSignature -LiteralPath $publishPath
-          Write-Host "Authenticode status: $($signature.Status)"
-          if ($signature.SignerCertificate) {
-            Write-Host "Signer: $($signature.SignerCertificate.Subject)"
-          }
-          if ($signature.Status -ne "Valid") {
-            throw "SignPath returned an executable that Windows does not consider to have a valid Authenticode signature."
-          }
-
       - name: Publish standalone Windows installer
-        if: steps.publication-mode.outputs.mode != 'skip'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          PUBLICATION_MODE: ${{ steps.publication-mode.outputs.mode }}
         run: |
           $publishPath = "${{ steps.prepare-installer.outputs.publish-path }}"
           if (-not (Test-Path -LiteralPath $publishPath)) {
@@ -346,22 +226,12 @@ jobs:
           Write-Host "Publishing installer: $publishPath"
           $digest = (Get-FileHash -LiteralPath $publishPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
-          if ($env:PUBLICATION_MODE -eq "signed") {
-            $signature = Get-AuthenticodeSignature -LiteralPath $publishPath
-            if ($signature.Status -ne "Valid") { throw "Refusing to publish an invalid signed installer." }
-            $notes = "Windows build from commit ${{ github.sha }}. Authenticode signed via SignPath Foundation. SHA256: $digest"
-          }
-          else {
-            $notes = "Windows build from commit ${{ github.sha }}. UNSIGNED development build. SHA256: $digest"
-          }
+          $notes = "Windows build from commit ${{ github.sha }}. UNSIGNED development build. SHA256: $digest"
 
           $notes += "`n`nCyd is an independently maintained GPL-3.0-only fork of lockdown-systems/cyd. Back up, selectively delete, and migrate social media data. No usage analytics or remote error reports are sent by this fork."
           $notes += "`n`nPrivacy and platform connections: https://github.com/${{ github.repository }}/blob/${{ github.sha }}/docs/privacy.md"
           $notes += "`nSource and license: https://github.com/${{ github.repository }}/tree/${{ github.sha }}"
           $notes += "`nInstall by running CydDevSetup.exe. Uninstall Cyd Dev through Windows Settings > Apps. Local archives and settings are retained; see the privacy notice for data removal."
-          $notes += "`n`nCode signing policy: https://github.com/${{ github.repository }}/blob/${{ github.sha }}/docs/code-signing.md"
-
-          $notes += "`nFree code signing provided by https://signpath.io/, certificate by https://signpath.org/ (onboarding pending for unsigned builds)."
 
           if (gh release view dev-latest --repo "${{ github.repository }}" 2>$null) {
             gh release upload dev-latest $publishPath --clobber --repo "${{ github.repository }}"
